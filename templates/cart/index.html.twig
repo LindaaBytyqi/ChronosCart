@@ -1,0 +1,100 @@
+ {% extends 'base.html.twig' %}
+
+{% block title %}My Shopping Cart | ChronosCart{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <h1 class="mb-4">My Shopping Cart</h1>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+
+    {% for message in app.flashes('error') %}
+        <div class="alert alert-danger">{{ message }}</div>
+    {% endfor %}
+
+    {% if items is empty %}
+        <div class="text-center py-5">
+            <h3>Your cart is empty</h3>
+            <p class="text-muted">Discover our products and find something you love.</p>
+            <a href="{{ path('app_shop') }}" class="btn btn-dark mt-2">
+                Continue Shopping
+            </a>
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Unit Price</th>
+                        <th>Quantity</th>
+                        <th>Subtotal</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    {% if item.product.imageName %}
+                                        <img
+                                            src="{{ asset('uploads/products/' ~ item.product.imageName) }}"
+                                            alt="{{ item.product.name }}"
+                                            style="width: 70px; height: 70px; object-fit: cover;"
+                                            class="rounded"
+                                        >
+                                    {% endif %}
+
+                                    <span class="fw-semibold">{{ item.product.name }}</span>
+                                </div>
+                            </td>
+
+                            <td>{{ item.product.basePrice|number_format(2, '.', ',') }} €</td>
+                            <td>{{ item.quantity }}</td>
+                            <td class="fw-semibold">
+                                {{ item.subtotal|number_format(2, '.', ',') }} €
+                            </td>
+                            <td>
+                                <form
+                                    action="{{ path('app_cart_remove', {id: item.product.id}) }}"
+                                    method="post"
+                                >
+                                    <input
+                                        type="hidden"
+                                        name="_token"
+                                        value="{{ csrf_token('remove_from_cart_' ~ item.product.id) }}"
+                                    >
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        Remove
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold">Total:</td>
+                        <td colspan="2" class="fw-bold fs-5">
+                            {{ total|number_format(2, '.', ',') }} €
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{{ path('app_shop') }}" class="btn btn-outline-dark">
+                Continue Shopping
+            </a>
+
+            <a href="{{ path('app_checkout') }}" class="btn btn-dark">
+                Proceed to Checkout
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

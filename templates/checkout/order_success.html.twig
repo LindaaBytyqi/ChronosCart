@@ -1,0 +1,716 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Order confirmed | ChronosCart{% endblock %}
+
+{% block body %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+    .os {
+        --ink: #1f1b17;
+        --ink-soft: #6f665b;
+        --bronze: #8a6a43;
+        --bronze-light: #c9ab80;
+        --paper: #f6f2eb;
+        --line: #e4dccf;
+        --card: #ffffff;
+
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+        color: var(--ink);
+        font-family: 'Instrument Sans', system-ui, sans-serif;
+    }
+
+    .os * { box-sizing: border-box; }
+    .os-hero {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 26px 30px;
+        background: #eef3ea;
+        border: 1px solid #d3e0cb;
+        border-radius: 16px;
+    }
+
+    .os-check {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: #3f6b45;
+        color: #fff;
+    }
+
+    .os-check svg { width: 26px; height: 26px; }
+
+    .os-hero h1 {
+        margin: 0 0 4px;
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: clamp(24px, 3.4vw, 32px);
+        font-weight: 500;
+        line-height: 1.15;
+        letter-spacing: -.01em;
+        color: #24402a;
+    }
+
+    .os-hero p {
+        margin: 0;
+        color: #4d6552;
+        font-size: 15px;
+        line-height: 1.55;
+    }
+
+    .os-hero p strong { color: #24402a; font-weight: 600; }
+
+    .os-steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin: 34px 4px 38px;
+        padding: 0;
+        list-style: none;
+    }
+
+    .os-step {
+        position: relative;
+        padding-top: 26px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-soft);
+    }
+
+    .os-step::before {
+        content: '';
+        position: absolute;
+        top: 5px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--line);
+    }
+
+    .os-step::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 2px solid var(--line);
+    }
+
+    .os-step.done { color: var(--ink); }
+    .os-step.done::before { background: var(--bronze); }
+    .os-step.done::after { background: var(--bronze); border-color: var(--bronze); }
+
+    .os-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .os-stack { display: grid; gap: 24px; }
+
+    .os-card {
+        padding: 30px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+    }
+
+    .os-card h2 {
+        margin: 0 0 22px;
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 24px;
+        font-weight: 500;
+        letter-spacing: -.01em;
+    }
+
+    .os-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 18px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .os-item:first-of-type { padding-top: 0; }
+    .os-item:last-of-type { border-bottom: 0; padding-bottom: 0; }
+
+    .os-item-name { margin: 0 0 4px; font-weight: 600; font-size: 16px; }
+    .os-item-meta { color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+    .os-item-price {
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 19px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .os-dl {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px 28px;
+        margin: 0;
+    }
+
+    .os-dl dt {
+        margin-bottom: 5px;
+        color: var(--ink-soft);
+        font-size: 13px;
+    }
+
+    .os-dl dd {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+
+    .os-receipt {
+        position: sticky;
+        top: 24px;
+        padding: 30px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+    }
+
+    .os-receipt-no {
+        margin: 0 0 4px;
+        color: var(--ink-soft);
+        font-size: 13px;
+    }
+
+    .os-receipt-id {
+        margin: 0;
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 40px;
+        font-weight: 500;
+        letter-spacing: -.02em;
+        color: var(--bronze);
+    }
+
+    .os-tear {
+        position: relative;
+        margin: 26px -30px;
+        border-top: 2px dashed var(--line);
+    }
+
+    .os-tear::before,
+    .os-tear::after {
+        content: '';
+        position: absolute;
+        top: -13px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #fff;
+        border: 1px solid var(--line);
+    }
+
+    .os-tear::before { left: -12px; }
+    .os-tear::after { right: -12px; }
+
+    .os-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 0;
+        font-size: 15px;
+    }
+
+    .os-row span:first-child { color: var(--ink-soft); }
+    .os-row span:last-child { font-weight: 500; text-align: right; }
+
+    .os-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 99px;
+        background: #ece1cf;
+        color: #5f4a2e;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .os-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 14px;
+        margin-top: 8px;
+    }
+
+    .os-total span { font-weight: 600; }
+    .os-total strong {
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 36px;
+        font-weight: 500;
+        letter-spacing: -.02em;
+    }
+    .os-note {
+        margin-top: 24px;
+        padding: 20px 24px;
+        border-left: 3px solid var(--bronze);
+        background: var(--paper);
+        border-radius: 0 10px 10px 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+        line-height: 1.65;
+    }
+
+    .os-note strong { color: var(--ink); }
+    .os-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 32px;
+    }
+    .os-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 13px 26px;
+        border: 1px solid var(--ink);
+        border-radius: 10px;
+        background: var(--ink);
+        color: #fff;
+        font: 600 15px 'Instrument Sans', system-ui, sans-serif;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background .2s ease, color .2s ease;
+    }
+
+    .os-btn:hover { background: var(--bronze); border-color: var(--bronze); color: #fff; }
+
+    .os-btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+    .os-btn.ghost:hover { background: var(--paper); border-color: var(--bronze-light); color: var(--ink); }
+    .os-btn:focus-visible {
+        outline: 3px solid var(--bronze-light);
+        outline-offset: 2px;
+    }
+
+    
+.os-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.os-section-heading h2 {
+    margin-bottom: 0;
+}
+
+.os-items-count {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    border-radius: 20px;
+    background: #f2f0eb;
+    color: #6f665b;
+    font-size: 12px;
+}
+
+.os-item {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 17px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.os-item:first-of-type {
+    padding-top: 10px;
+}
+
+.os-item:last-of-type {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.os-product-image {
+    width: 76px;
+    height: 82px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #f5f4f1;
+}
+
+.os-product-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .25s ease;
+}
+
+.os-item:hover .os-product-image img {
+    transform: scale(1.04);
+}
+
+.os-no-image {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: #96918a;
+}
+
+.os-product-info {
+    min-width: 0;
+}
+
+.os-item-name {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.os-item-meta,
+.os-item-unit {
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.os-item-price {
+    align-self: center;
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 19px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-align: right;
+}
+
+
+@media (max-width: 860px) {
+    .os {
+        max-width: 720px;
+        padding-top: 32px;
+    }
+
+    .os-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .os-receipt {
+        position: static;
+        order: -1;
+    }
+}
+
+@media (max-width: 520px) {
+    .os {
+        width: 100%;
+        padding: 20px 12px 40px;
+    }
+
+    .os-hero {
+        align-items: flex-start;
+        gap: 12px;
+        padding: 18px 15px;
+    }
+
+    .os-check {
+        width: 42px;
+        height: 42px;
+    }
+
+    .os-hero p {
+        font-size: 13px;
+    }
+
+    .os-steps {
+        margin: 25px 2px 28px;
+    }
+
+    .os-step {
+        padding-top: 22px;
+        font-size: 11px;
+    }
+
+    .os-grid {
+        gap: 15px;
+    }
+
+    .os-stack {
+        gap: 15px;
+    }
+
+    .os-card,
+    .os-receipt {
+        padding: 17px 14px;
+        border-radius: 12px;
+    }
+
+    .os-card h2 {
+        font-size: 21px;
+        margin-bottom: 16px;
+    }
+
+    .os-item {
+        grid-template-columns: 60px minmax(0, 1fr);
+        gap: 12px;
+        padding: 14px 0;
+    }
+
+    .os-product-image {
+        width: 60px;
+        height: 66px;
+    }
+
+    .os-item-price {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: -5px;
+        font-size: 17px;
+    }
+
+    .os-item-name {
+        font-size: 14px;
+    }
+
+    .os-item-meta,
+    .os-item-unit {
+        font-size: 12px;
+    }
+
+    .os-dl {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 17px;
+    }
+
+    .os-receipt-id {
+        font-size: 34px;
+    }
+
+    .os-total strong {
+        font-size: 29px;
+    }
+
+    .os-note {
+        padding: 15px;
+        font-size: 13px;
+    }
+
+    .os-actions {
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 22px;
+    }
+
+    .os-btn {
+        justify-content: center;
+        width: 100%;
+        min-height: 46px;
+    }
+}
+
+@media (max-width: 360px) {
+    .os-item {
+        grid-template-columns: 50px minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .os-product-image {
+        width: 50px;
+        height: 56px;
+    }
+
+    .os-hero h1 {
+        font-size: 22px;
+    }
+}
+
+
+    @media (max-width: 860px) {
+        .os-grid { grid-template-columns: 1fr; }
+        .os-receipt { position: static; order: -1; }
+    }
+
+    @media (max-width: 600px) {
+        .os { padding: 24px 14px 56px; }
+
+        .os-hero { padding: 20px; gap: 16px; }
+        .os-check { width: 44px; height: 44px; }
+        .os-card, .os-receipt { padding: 22px; }
+        .os-tear { margin-left: -22px; margin-right: -22px; }
+        .os-dl { grid-template-columns: 1fr; gap: 18px; }
+        .os-step { font-size: 12px; }
+    }
+
+    @media print {
+        .os-actions { display: none; }
+        .os-receipt { position: static; }
+    }
+</style>
+
+<div class="os">
+
+    <header class="os-hero" role="status">
+        <div class="os-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        </div>
+        <div>
+            <h1>Order placed successfully</h1>
+            <p>Thank you! We've received order <strong>#{{ order.id }}</strong>.</p>
+        </div>
+    </header>
+
+    <ol class="os-steps" aria-label="Order progress">
+        <li class="os-step done">Received</li>
+        <li class="os-step">Confirmed</li>
+        <li class="os-step">Shipped</li>
+        <li class="os-step">Delivered</li>
+    </ol>
+
+    <div class="os-grid">
+
+        <div class="os-stack">
+
+            
+<section class="os-card">
+    <div class="os-section-heading">
+        <h2>Items</h2>
+        <span class="os-items-count">
+            {{ order.orderItems|length }}
+            {% if order.orderItems|length == 1 %}item{% else %}items{% endif %}
+        </span>
+    </div>
+
+    {% for item in order.orderItems %}
+        <div class="os-item">
+            <div class="os-product-image">
+                {% if item.product.imageName %}
+                    <img
+                        src="{{ asset('uploads/products/' ~ item.product.imageName) }}"
+                        alt="{{ item.product.name }}"
+                        loading="lazy"
+                    >
+                {% else %}
+                    <div class="os-no-image" aria-label="No product image">
+                        <svg viewBox="0 0 24 24" width="25" height="25"
+                             fill="none" stroke="currentColor"
+                             stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="3"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <path d="m21 15-5-5L5 21"/>
+                        </svg>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="os-product-info">
+                <p class="os-item-name">{{ item.product.name }}</p>
+
+                <div class="os-item-meta">
+                    Quantity: {{ item.quantity }}
+                </div>
+
+                <div class="os-item-unit">
+                    €{{ item.unitPrice|number_format(2, '.', ',') }} each
+                </div>
+            </div>
+
+            <div class="os-item-price">
+                €{{ item.subtotal|number_format(2, '.', ',') }}
+            </div>
+        </div>
+    {% else %}
+        <p class="os-item-meta">No order items found.</p>
+    {% endfor %}
+</section>
+
+
+            <section class="os-card">
+                <h2>Customer details</h2>
+
+                <dl class="os-dl">
+                    <div>
+                        <dt>Full name</dt>
+                        <dd>{{ order.fullName }}</dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd>{{ order.email }}</dd>
+                    </div>
+                    <div>
+                        <dt>Phone</dt>
+                        <dd>{{ order.phone }}</dd>
+                    </div>
+                    <div>
+                        <dt>Delivery address</dt>
+                        <dd>{{ order.address }}</dd>
+                    </div>
+                    <div>
+                        <dt>City &amp; postal code</dt>
+                        <dd>{{ order.city }}, {{ order.zipCode }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+        </div>
+
+        <aside class="os-receipt" aria-label="Order summary">
+            <p class="os-receipt-no">Order number</p>
+            <p class="os-receipt-id">#{{ order.id }}</p>
+
+            <div class="os-tear" aria-hidden="true"></div>
+
+            <div class="os-row">
+                <span>Status</span>
+                <span><span class="os-badge">{{ order.status }}</span></span>
+            </div>
+
+            <div class="os-row">
+                <span>Payment</span>
+                <span>
+                    {% if order.paymentMethod == 'cod' %}
+                        Cash on Delivery
+                    {% elseif order.paymentMethod == 'online' %}
+                        Online Payment
+                    {% else %}
+                        {{ order.paymentMethod }}
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="os-tear" aria-hidden="true"></div>
+
+            <div class="os-total">
+                <span>Total</span>
+                <strong>€{{ order.totalAmount|number_format(2, '.', ',') }}</strong>
+            </div>
+        </aside>
+
+    </div>
+
+    <div class="os-note">
+        <strong>What's next?</strong><br>
+        Your order has been recorded and will be confirmed shortly.
+        Keep your order number <strong>#{{ order.id }}</strong> for future reference.
+    </div>
+
+    <div class="os-actions">
+        <a href="{{ path('app_shop') }}" class="os-btn">Continue Shopping</a>
+        <a href="{{ path('app_cart') }}" class="os-btn ghost">Back to Cart</a>
+        <button type="button" class="os-btn ghost" onclick="window.print()">Print order</button>
+    </div>
+
+</div>
+{% endblock %}

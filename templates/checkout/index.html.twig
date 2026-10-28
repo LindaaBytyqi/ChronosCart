@@ -1,0 +1,532 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Checkout | ChronosCart{% endblock %}
+
+{% block body %}
+<style>
+    .checkout-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 45px 20px 70px;
+        color: #292722;
+    }
+
+    .checkout-heading {
+        margin-bottom: 30px;
+    }
+
+    .checkout-heading span {
+        color: #8a7967;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 3px;
+    }
+
+    .checkout-heading h1 {
+        margin-top: 8px;
+        font-size: clamp(32px, 4vw, 44px);
+        font-weight: 600;
+    }
+
+    .checkout-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        align-items: start;
+    }
+
+    .checkout-card {
+        padding: 28px;
+        background: #fff;
+        border: 1px solid #e9e4dc;
+        border-radius: 14px;
+    }
+
+    .checkout-card-title {
+        margin-bottom: 25px;
+    }
+
+    .checkout-card-title h3 {
+        font-size: 21px;
+        font-weight: 600;
+    }
+
+    .checkout-card-title p {
+        margin: 7px 0 0;
+        color: #817c73;
+        font-size: 16px;
+    }
+
+    .checkout-product {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 16px 0;
+        border-bottom: 1px solid #eeeae4;
+    }
+
+    .checkout-product-image {
+        width: 85px;
+        height: 85px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 9px;
+        background: #f5f1eb;
+    }
+
+    .checkout-product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .checkout-product-info h5 {
+        margin: 0 0 7px;
+        font-size: 17px;
+        font-weight: 600;
+    }
+
+    .checkout-product-info span,
+    .checkout-product-price span {
+        color: #817c73;
+        font-size: 15px;
+    }
+
+    .checkout-product-price {
+        text-align: right;
+    }
+
+    .checkout-product-price strong {
+        display: block;
+        margin-top: 4px;
+        white-space: nowrap;
+    }
+
+    .checkout-summary {
+        padding-top: 20px;
+    }
+
+    .summary-row,
+    .summary-total {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+
+    .summary-row {
+        color: #706b63;
+        font-size: 16px;
+    }
+
+    .summary-total {
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid #e9e4dc;
+        font-size: 19px;
+        font-weight: 700;
+    }
+
+    .back-cart {
+        display: inline-block;
+        margin-top: 15px;
+        color: #625344;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .back-cart:hover {
+        text-decoration: underline;
+    }
+
+    .checkout-form .form-label {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .checkout-form .form-control,
+    .checkout-form .form-select {
+        min-height: 45px;
+        border-color: #e1dcd4;
+        border-radius: 8px;
+    }
+
+    .checkout-form .form-control:focus,
+    .checkout-form .form-select:focus {
+        border-color: #9b8975;
+        box-shadow: 0 0 0 3px rgb(155 137 117 / 12%);
+    }
+
+    .payment-title {
+        margin: 12px 0 10px;
+        font-weight: 600;
+    }
+
+    .place-order-button {
+        width: 100%;
+        margin-top: 24px;
+        padding: 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #292722;
+        color: white;
+        font-weight: 600;
+    }
+
+    .place-order-button:hover {
+        background: #292722;
+    }
+
+    .secure-checkout {
+        margin-top: 15px;
+        color: #777168;
+        text-align: center;
+        font-size: 13px;
+    }
+
+    .empty-checkout {
+        padding: 90px 20px;
+        text-align: center;
+    }
+
+    .empty-checkout h2 {
+        font-weight: 600;
+    }
+
+    @media (max-width: 800px) {
+        .checkout-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .checkout-card {
+            padding: 20px;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .checkout-product {
+            grid-template-columns: 60px minmax(0, 1fr);
+        }
+
+        .checkout-product-image {
+            width: 60px;
+            height: 60px;
+        }
+
+        .checkout-product-price {
+            grid-column: 2;
+            text-align: left;
+        }
+    }
+</style>
+
+<div class="checkout-page">
+    {% if items is empty %}
+        <div class="empty-checkout">
+            <h2 class="mt-3">Your cart is empty</h2>
+            <p class="text-muted">
+                Add some products before proceeding to checkout.
+            </p>
+
+            <a href="{{ path('app_cart') }}" class="btn btn-dark mt-3">
+                Continue Shopping
+            </a>
+        </div>
+    {% else %}
+        <div class="checkout-heading">
+            <span>YOUR ORDER</span>
+            <h1>Checkout</h1>
+        </div>
+
+        <div class="checkout-grid">
+            <section class="checkout-card">
+                <div class="checkout-card-title">
+                    <h3>Order Summary</h3>
+                    <p>Review the items in your cart.</p>
+                </div>
+
+                {% for item in items %}
+                    <div class="checkout-product">
+                        <div class="checkout-product-image">
+                            {% if item.product.imageName %}
+                                <img
+                                    src="{{ asset('uploads/products/' ~ item.product.imageName) }}"
+                                    alt="{{ item.product.name }}"
+                                >
+                            {% else %}
+                                <span class="text-muted">No image</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="checkout-product-info">
+                            <h5>{{ item.product.name }}</h5>
+                            <span>
+                                {{ item.product.basePrice|number_format(2, '.', ',') }} €
+                                × {{ item.quantity }}
+                            </span>
+                        </div>
+
+                        <div class="checkout-product-price">
+                            <span>Subtotal</span>
+                            <strong>
+                                {{ item.subtotal|number_format(2, '.', ',') }} €
+                            </strong>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <div class="checkout-summary">
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <strong>{{ subtotal|number_format(2, '.', ',') }} €</strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Shipping</span>
+                        <strong>
+                            {% if shipping == 0 %}
+                                Free
+                            {% else %}
+                                {{ shipping|number_format(2, '.', ',') }} €
+                            {% endif %}
+                        </strong>
+                    </div>
+
+                    <div class="summary-total">
+                        <span>Total</span>
+                        <strong>{{ total|number_format(2, '.', ',') }} €</strong>
+                    </div>
+                </div>
+
+                <a href="{{ path('app_cart') }}" class="back-cart">
+                    ← Back to Cart
+                </a>
+            </section>
+
+            <section class="checkout-card">
+                <div class="checkout-card-title">
+                    <h3>Personal Information</h3>
+                    <p>Enter your details to continue with your order.</p>
+                </div>
+
+                {% for message in app.flashes('error') %}
+                    <div class="alert alert-danger">{{ message }}</div>
+                {% endfor %}
+
+                <form
+                    action="{{ path('app_checkout_place_order') }}"
+                    method="post"
+                    class="checkout-form"
+                >
+                    <input
+                        type="hidden"
+                        name="_token"
+                        value="{{ csrf_token('checkout') }}"
+                    >
+
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label">Full Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="fullName"
+                            name="fullName"
+                            value="{{ fullName|default('') }}"
+                            minlength="2"
+                            maxlength="100"
+                            autocomplete="name"
+                            required
+                        >
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input
+                            type="email"
+                            class="form-control"
+                            id="email"
+                            name="email"
+                            value="{{ email|default('') }}"
+                            maxlength="180"
+                            autocomplete="email"
+                            required
+                        >
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input
+                            type="tel"
+                            class="form-control"
+                            id="phone"
+                            name="phone"
+                            minlength="7"
+                            maxlength="20"
+                            autocomplete="tel"
+                            required
+                        >
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="address"
+                            name="address"
+                            maxlength="255"
+                            autocomplete="street-address"
+                            required
+                        >
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-7 mb-3">
+                            <label for="city" class="form-label">City</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="city"
+                                name="city"
+                                maxlength="100"
+                                autocomplete="address-level2"
+                                required
+                            >
+                        </div>
+
+                        <div class="col-md-5 mb-3">
+                            <label for="zipCode" class="form-label">Postal Code</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="zipCode"
+                                name="zipCode"
+                                maxlength="20"
+                                autocomplete="postal-code"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="payment-title">Payment Method</div>
+
+                    <select
+                        class="form-select"
+                        id="paymentMethod"
+                        name="paymentMethod"
+                        required
+                    >
+                        <option value="cod">Cash on Delivery</option>
+                        <option value="online" >
+                            Online Payment 
+                        </option>
+                    </select>
+
+    <div id="cardDetails" class="card-details mt-4" hidden>
+    <h5 class="mb-3">Credit / Debit Card</h5>
+
+    <div class="mb-3">
+        <label for="cardHolder" class="form-label">Cardholder Name</label>
+        <input
+            type="text"
+            class="form-control"
+            id="cardHolder"
+            name="cardHolder"
+            autocomplete="cc-name"
+            maxlength="100"
+        >
+    </div>
+
+    <div class="mb-3">
+        <label for="cardNumber" class="form-label">Card Number</label>
+        <input
+            type="text"
+            class="form-control"
+            id="cardNumber"
+            name="cardNumber"
+            inputmode="numeric"
+            autocomplete="cc-number"
+            placeholder="1234 5678 9012 3456"
+            maxlength="23"
+        >
+    </div>
+
+    <div class="row">
+        <div class="col-7 mb-3">
+            <label for="expiryDate" class="form-label">Expiry Date</label>
+            <input
+                type="text"
+                class="form-control"
+                id="expiryDate"
+                name="expiryDate"
+                autocomplete="cc-exp"
+                placeholder="MM/YY"
+                maxlength="5"
+            >
+        </div>
+
+        <div class="col-5 mb-3">
+            <label for="cvv" class="form-label">CVV</label>
+            <input
+                type="password"
+                class="form-control"
+                id="cvv"
+                name="cvv"
+                inputmode="numeric"
+                autocomplete="cc-csc"
+                placeholder="123"
+                maxlength="4"
+            >
+        </div>
+    </div>
+
+    <p class="text-muted small">
+        Card details are for demonstration only. No real payment is processed.
+    </p>
+</div>
+                    <button type="submit" class="place-order-button">
+                        Place Order
+                    </button>
+
+                    <div class="secure-checkout">
+                        Order details will be validated before confirmation.
+                    </div>
+                </form>
+            </section>
+        </div>
+    {% endif %}
+</div>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const paymentMethod = document.getElementById('paymentMethod');
+    const cardDetails = document.getElementById('cardDetails');
+
+    const cardFields = [
+        document.getElementById('cardHolder'),
+        document.getElementById('cardNumber'),
+        document.getElementById('expiryDate'),
+        document.getElementById('cvv')
+    ];
+
+    function toggleCardDetails() {
+        const isOnline = paymentMethod.value === 'online';
+
+        cardDetails.hidden = !isOnline;
+
+        cardFields.forEach(function (field) {
+            field.required = isOnline;
+        });
+    }
+
+    paymentMethod.addEventListener('change', toggleCardDetails);
+
+    toggleCardDetails();
+});
+</script>
+{% endblock %}

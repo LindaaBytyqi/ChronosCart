@@ -1,0 +1,27 @@
+
+{% extends 'base.html.twig' %}
+
+{% block title %}Create Flash Sale Event{% endblock %}
+
+{% block body %}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h1 class="h5 mb-0">Create Flash Sale Event</h1>
+                </div>
+
+                <div class="card-body">
+                    {{ include('flash_sale_event/_form.html.twig') }}
+                </div>
+
+                <div class="card-footer bg-white">
+                    <a href="{{ path('app_flash_sale_event_index') }}"
+                       class="text-decoration-none">
+                        ← Back to events
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,51 @@
+services:
+  database:
+    image: mysql:8.0
+    container_name: chronoscart_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: chronoscart
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - db_data:/var/lib/mysql
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chronoscart_app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://root:root@database:3306/chronoscart?serverVersion=8.0&charset=utf8mb4"
+      REDIS_URL: "redis://host.docker.internal:6379"
+      MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - var_data:/var/www/html/var
+    depends_on:
+      database:
+        condition: service_healthy
+
+  mailer:
+    image: axllent/mailpit
+    container_name: chronoscart_mailer
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  db_data:
+  vendor_data:
+  var_data:

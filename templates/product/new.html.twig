@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Create Product{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <h1>Create Product</h1>
+
+    {{ include('product/_form.html.twig', {
+        form: form,
+        button_label: 'Create product'
+    }) }}
+
+    <a href="{{ path('app_product_index') }}"
+       class="btn btn-outline-secondary mt-3">
+        Back to products
+    </a>
+</div>
+{% endblock %}
+
