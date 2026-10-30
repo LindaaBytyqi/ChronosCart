@@ -24,11 +24,11 @@ class ProductRepository extends ServiceEntityRepository
      */
     public function findForUpdate(int $id): ?Product
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.id = :id')
-            ->setParameter('id', $id)
-            ->getQuery()
-            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
-            ->getOneOrNullResult();
+    return $this->createQueryBuilder('p')
+        ->where('p.id = :id')
+        ->setParameter('id', $id)
+        ->getQuery()
+        ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+        ->getOneOrNullResult();
     }
 }

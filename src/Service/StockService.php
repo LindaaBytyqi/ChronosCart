@@ -19,7 +19,7 @@ class StockService
 
     public function reserve(
         int $productId,
-        int $userId,
+        ?int $userId,
         int $quantity,
         FlashSaleEvent $event
     ): InventoryReservation {
@@ -31,7 +31,7 @@ class StockService
 
         return $this->entityManager->wrapInTransaction(
             function () use ($productId, $userId, $quantity, $event) {
-                // Lock the product row to prevent concurrent overselling.
+                
                 $product = $this->productRepository
                     ->findForUpdate($productId);
 
@@ -49,12 +49,16 @@ class StockService
                     );
                 }
 
-                $user = $this->entityManager
-                    ->getRepository(User::class)
-                    ->find($userId);
+                $user = null;
+
+                if ($userId !== null) {
+                    $user = $this->entityManager
+                        ->getRepository(User::class)
+                        ->find($userId);
 
                 if (!$user instanceof User) {
                     throw new RuntimeException('User not found.');
+                    }
                 }
 
                 $maxQuantity = $event->getMaxQuantityPerUser();
@@ -79,49 +83,54 @@ class StockService
                 }
 
                 
-                $userReservedQuantity = (int) $this->entityManager
-                    ->createQuery(
-                        'SELECT COALESCE(SUM(r.quantity), 0)
-                         FROM App\Entity\InventoryReservation r
-                         WHERE r.product = :product
-                         AND r.user = :user
-                         AND r.flashSaleEvent = :event
-                         AND r.status = :status
-                         AND r.expiresAt > :now'
-                    )
-                    ->setParameter('product', $product)
-                    ->setParameter('user', $user)
-                    ->setParameter('event', $event)
-                    ->setParameter('status', 'RESERVED')
-                    ->setParameter('now', $now)
-                    ->getSingleScalarResult();
+                $userReservedQuantity = 0;
+                $userOrderedQuantity = 0;
 
-            
-                $userOrderedQuantity = (int) $this->entityManager
-                    ->createQuery(
-                        'SELECT COALESCE(SUM(oi.quantity), 0)
-                         FROM App\Entity\OrderItems oi
-                         JOIN oi.purchaseOrder o
-                         WHERE oi.product = :product
-                         AND o.user = :user
-                         AND o.status IN (:statuses)'
-                    )
-                    ->setParameter('product', $product)
-                    ->setParameter('user', $user)
-                    ->setParameter('statuses', ['PENDING', 'PAID'])
-                    ->getSingleScalarResult();
+if ($user !== null) {
+    $userReservedQuantity = (int) $this->entityManager
+        ->createQuery(
+            'SELECT COALESCE(SUM(r.quantity), 0)
+             FROM App\Entity\InventoryReservation r
+             WHERE r.product = :product
+             AND r.user = :user
+             AND r.flashSaleEvent = :event
+             AND r.status = :status
+             AND r.expiresAt > :now'
+        )
+        ->setParameter('product', $product)
+        ->setParameter('user', $user)
+        ->setParameter('event', $event)
+        ->setParameter('status', 'RESERVED')
+        ->setParameter('now', $now)
+        ->getSingleScalarResult();
 
-                if (
-                    $userReservedQuantity
-                    + $userOrderedQuantity
-                    + $quantity > $maxQuantity
-                ) {
-                    throw new RuntimeException(
-                        'You have reached the maximum quantity for this flash sale.'
-                    );
-                }
+    $userOrderedQuantity = (int) $this->entityManager
+        ->createQuery(
+            'SELECT COALESCE(SUM(oi.quantity), 0)
+             FROM App\Entity\OrderItems oi
+             JOIN oi.purchaseOrder o
+             WHERE oi.product = :product
+             AND o.user = :user
+             AND o.status IN (:statuses)'
+        )
+        ->setParameter('product', $product)
+        ->setParameter('user', $user)
+        ->setParameter('statuses', ['PENDING', 'PAID'])
+        ->getSingleScalarResult();
+}
 
-                // Count all active reservations for this product.
+if (
+    $userReservedQuantity
+    + $userOrderedQuantity
+    + $quantity > $maxQuantity
+) {
+    throw new RuntimeException(
+        'You have reached the maximum quantity for this flash sale.'
+    );
+}
+
+
+
                 $reservedQuantity = (int) $this->entityManager
                     ->createQuery(
                         'SELECT COALESCE(SUM(r.quantity), 0)
@@ -135,7 +144,7 @@ class StockService
                     ->setParameter('now', $now)
                     ->getSingleScalarResult();
 
-                // Count pending and paid order quantities.
+
                 $orderedQuantity = (int) $this->entityManager
                     ->createQuery(
                         'SELECT COALESCE(SUM(oi.quantity), 0)
@@ -167,6 +176,8 @@ class StockService
                 $reservation->setExpiresAt(
                     $now->modify('+10 minutes')
                 );
+
+                $reservation->setCheckoutToken(bin2hex(random_bytes(32)));
 
                 $this->entityManager->persist($reservation);
                 $this->entityManager->flush();

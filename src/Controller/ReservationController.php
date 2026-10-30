@@ -28,10 +28,16 @@ final class ReservationController extends AbstractController
 
         $user = $this->getUser();
 
-        if (!$user instanceof User || $user->getId() === null) {
+        $userId = null;
+
+        if ($user instanceof User) {
+            $userId = $user->getId();
+
+        if ($userId === null) {
             return $this->json([
-                'error' => 'You must log in before reserving a product.',
+             'error' => 'Invalid user account.',
             ], 401);
+        }
         }
 
        
@@ -87,7 +93,7 @@ final class ReservationController extends AbstractController
         try {
             $reservation = $stockService->reserve(
                 $product->getId(),
-                $user->getId(),
+                $userId,
                 $quantity,
                 $event
             );
@@ -104,6 +110,7 @@ final class ReservationController extends AbstractController
             'productId' => $product->getId(),
             'quantity' => $reservation->getQuantity(),
             'status' => $reservation->getStatus(),
+            'checkoutToken' => $reservation->getCheckoutToken(),
             'expiresAt' => $reservation->getExpiresAt()?->format(
                 \DateTimeInterface::ATOM
             ),

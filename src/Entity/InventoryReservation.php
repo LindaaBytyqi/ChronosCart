@@ -1,9 +1,9 @@
 <?php
 
 namespace App\Entity;
-
-use App\Repository\InventoryReservationRepository;
 use Doctrine\ORM\Mapping as ORM;
+use App\Repository\InventoryReservationRepository;
+
 
 #[ORM\Entity(repositoryClass: InventoryReservationRepository::class)]
 class InventoryReservation
@@ -27,12 +27,15 @@ class InventoryReservation
     private ?string $status = null;
 
     #[ORM\ManyToOne(inversedBy: 'inventoryReservations')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true)]
     private ?User $user = null;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?FlashSaleEvent $flashSaleEvent = null;
+
+    #[ORM\Column(length: 64, nullable: true, unique: true)]
+    private ?string $checkoutToken = null;
 
     public function getId(): ?int
     {
@@ -106,6 +109,18 @@ class InventoryReservation
 
     public function setFlashSaleEvent(FlashSaleEvent $flashSaleEvent): static {
         $this->flashSaleEvent = $flashSaleEvent;
+
+        return $this;
+    }
+
+    public function getCheckoutToken(): ?string
+    {
+        return $this->checkoutToken;
+    }
+
+    public function setCheckoutToken(?string $checkoutToken): static
+    {
+        $this->checkoutToken = $checkoutToken;
 
         return $this;
     }
