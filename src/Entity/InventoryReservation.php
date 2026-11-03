@@ -8,9 +8,7 @@ use App\Repository\InventoryReservationRepository;
 #[ORM\Entity(repositoryClass: InventoryReservationRepository::class)]
 class InventoryReservation
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Id,ORM\GeneratedValue,ORM\Column]
     private ?int $id = null;
 
     #[ORM\ManyToOne]
@@ -36,6 +34,15 @@ class InventoryReservation
 
     #[ORM\Column(length: 64, nullable: true, unique: true)]
     private ?string $checkoutToken = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $createdAt = null;
+
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTimeImmutable();
+    }
 
     public function getId(): ?int
     {
@@ -121,6 +128,18 @@ class InventoryReservation
     public function setCheckoutToken(?string $checkoutToken): static
     {
         $this->checkoutToken = $checkoutToken;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?\DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    {   
+        $this->createdAt = $createdAt;
 
         return $this;
     }

@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
     #[Route('/product')]
     final class ProductController extends AbstractController
@@ -46,6 +47,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
     }
 
     #[Route('/new', name: 'app_product_new', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function new(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -106,6 +108,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
     }
 
     #[Route('/{id}/edit', name: 'app_product_edit', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function edit(
         Request $request,
         Product $product,
@@ -157,6 +160,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
     }
 
     #[Route('/{id}', name: 'app_product_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function delete(
         Request $request,
         Product $product,

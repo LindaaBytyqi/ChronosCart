@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login | MyShop</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    {# Nëse përdor AssetMapper/Webpack Encore, ndrysho rrugën sipas projektit #}
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+</head>
+<body>
+
+<div class="login-page" style="--bg-image: url('{{ asset('images/login-bg.jpg') }}');">
+
+    <header class="login-header">
+        <a href="{{ path('app_shop') }}" class="link-small">Return to Store</a>
+    </header>
+
+    <main class="login-main">
+        <div class="login-card">
+            <h1>LOGIN</h1>
+
+            {% if error %}
+                <div class="alert" role="alert">
+                    {{ error.messageKey|trans(error.messageData, 'security') }}
+                </div>
+            {% endif %}
+
+            <form method="post" action="{{ path('app_login') }}" novalidate>
+                <input type="email"
+                       name="_username"
+                       value="{{ last_username }}"
+                       placeholder="ENTER YOUR EMAIL"
+                       autocomplete="email"
+                       required
+                       autofocus>
+
+                <div class="password-wrap">
+                    <input type="password"
+                           name="_password"
+                           id="password"
+                           placeholder="PASSWORD"
+                           autocomplete="current-password"
+                           required>
+<button type="button"
+        class="toggle-password"
+        aria-label="Show password"
+        id="togglePassword">
+    {# sy i hapur (password i fshehur) #}
+    <svg class="icon-show" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+    </svg>
+    {# sy i mbyllur me vijë (password i dukshëm) #}
+    <svg class="icon-hide" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+        <path d="M1 1l22 22"/>
+    </svg>
+</button>
+                </div>
+
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                <button type="submit" class="btn-login">LOGIN</button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="login-footer">
+        <span>Don't Have an Account Already?</span>
+        <a href="{{ path('app_register') }}" class="link-small">Sign Up</a>
+    </footer>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const input  = document.getElementById('password');
+        const button = document.getElementById('togglePassword');
+
+        button.addEventListener('click', function () {
+            const visible = input.type === 'password';
+            input.type = visible ? 'text' : 'password';
+            button.classList.toggle('is-visible', visible);
+            button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+        });
+    });
+</script>
+</body>
+</html>

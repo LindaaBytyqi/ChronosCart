@@ -11,6 +11,8 @@ use App\Repository\ProductRepository;
 use App\Service\StockService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use App\Event\InventoryReservedEvent;
 use RuntimeException;
 
 final class StockServiceTest extends TestCase
@@ -20,6 +22,7 @@ final class StockServiceTest extends TestCase
         $entityManager = $this->createMock(
             EntityManagerInterface::class
         );
+        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
 
         $productRepository = $this->createMock(
             ProductRepository::class
@@ -31,7 +34,8 @@ final class StockServiceTest extends TestCase
 
         $stockService = new StockService(
             $entityManager,
-            $productRepository
+            $productRepository,
+            $eventDispatcher
         );
 
         $this->expectException(RuntimeException::class);
@@ -67,6 +71,7 @@ final class StockServiceTest extends TestCase
     $user = $this->createMock(User::class);
 
     $event = $this->createMock(FlashSaleEvent::class);
+    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
     $event->method('getProduct')->willReturn($product);
     $event->method('getMaxQuantityPerUser')->willReturn(10);
     $event->method('getStartTime')
@@ -108,9 +113,16 @@ final class StockServiceTest extends TestCase
         ->expects(self::never())
         ->method('persist');
 
+
+
+    $eventDispatcher
+        ->expects(self::never())
+        ->method('dispatch');
+
     $stockService = new StockService(
         $entityManager,
-        $productRepository
+        $productRepository,
+        $eventDispatcher
     );
 
     $this->expectException(RuntimeException::class);
@@ -138,6 +150,11 @@ final class StockServiceTest extends TestCase
         $user = $this->createMock(User::class);
 
         $event = $this->createMock(FlashSaleEvent::class);
+        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+        $eventDispatcher ->expects(self::once())
+                        ->method('dispatch')
+                        ->with(self::isInstanceOf(InventoryReservedEvent::class));
+
         $event->method('getProduct')->willReturn($product);
         $event->method('getMaxQuantityPerUser')->willReturn(5);
         $event->method('getStartTime')
@@ -181,7 +198,8 @@ final class StockServiceTest extends TestCase
 
     $stockService = new StockService(
         $entityManager,
-        $productRepository
+        $productRepository,
+        $eventDispatcher
     );
 
     $result = $stockService->reserve(1, 1, 2, $event);

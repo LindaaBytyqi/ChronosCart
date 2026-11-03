@@ -10,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/flash/sale/event')]
 final class FlashSaleEventController extends AbstractController
@@ -23,6 +24,7 @@ final class FlashSaleEventController extends AbstractController
     }
 
     #[Route('/new', name: 'app_flash_sale_event_new', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function new(Request $request, EntityManagerInterface $entityManager): Response
     {
         $flashSaleEvent = new FlashSaleEvent();
@@ -51,6 +53,7 @@ final class FlashSaleEventController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'app_flash_sale_event_edit', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function edit(Request $request, FlashSaleEvent $flashSaleEvent, EntityManagerInterface $entityManager): Response
     {
         $form = $this->createForm(FlashSaleEventType::class, $flashSaleEvent);
@@ -69,6 +72,7 @@ final class FlashSaleEventController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_flash_sale_event_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
     public function delete(Request $request, FlashSaleEvent $flashSaleEvent, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('delete'.$flashSaleEvent->getId(), $request->getPayload()->getString('_token'))) {

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Register | MyShop</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+</head>
+<body>
+
+<div class="login-page" style="--bg-image: url('{{ asset('images/login-bg.jpg') }}');">
+
+    <header class="login-header">
+        <a href="{{ path('app_shop') }}" class="link-small">Return to Store</a>
+    </header>
+
+    <main class="login-main">
+        <div class="login-card login-card--register">
+            <h1>REGISTER</h1>
+
+            {{ form_start(registrationForm, {'attr': {'novalidate': 'novalidate'}}) }}
+
+                <div class="name-row">
+                    <div class="field">
+                        {{ form_widget(registrationForm.firstName, {'attr': {
+                            'placeholder': 'FIRST NAME',
+                            'autocomplete': 'given-name',
+                            'autofocus': 'autofocus'
+                        }}) }}
+                        {{ form_errors(registrationForm.firstName) }}
+                    </div>
+
+                    <div class="field">
+                        {{ form_widget(registrationForm.lastName, {'attr': {
+                            'placeholder': 'LAST NAME',
+                            'autocomplete': 'family-name'
+                        }}) }}
+                        {{ form_errors(registrationForm.lastName) }}
+                    </div>
+                </div>
+
+                <div class="field">
+                    {{ form_widget(registrationForm.email, {'attr': {
+                        'placeholder': 'ENTER YOUR EMAIL',
+                        'autocomplete': 'email'
+                    }}) }}
+                    {{ form_errors(registrationForm.email) }}
+                </div>
+
+                <div class="field">
+                    <div class="password-wrap">
+                        {{ form_widget(registrationForm.plainPassword, {'attr': {
+                            'placeholder': 'PASSWORD',
+                            'autocomplete': 'new-password',
+                            'id': 'password'
+                        }}) }}
+                        <button type="button" class="toggle-password" aria-label="Show password" id="togglePassword">
+                            <svg class="icon-show" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <svg class="icon-hide" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                <path d="M1 1l22 22"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {{ form_errors(registrationForm.plainPassword) }}
+                </div>
+
+                {# Checkbox-i duhet të jetë BRENDA formës, para butonit #}
+                <div class="field">
+                    <label class="terms-label" for="{{ registrationForm.agreeTerms.vars.id }}">
+                        {{ form_widget(registrationForm.agreeTerms) }}
+                        <span>I agree to the <a href="#">Terms &amp; Conditions</a></span>
+                    </label>
+                    {{ form_errors(registrationForm.agreeTerms) }}
+                </div>
+
+                <button type="submit" class="btn-login">REGISTER</button>
+
+            {{ form_end(registrationForm) }}
+        </div>
+    </main>
+
+    <footer class="login-footer">
+        <span>Already Have an Account?</span>
+        <a href="{{ path('app_login') }}" class="link-small">Login</a>
+    </footer>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const input  = document.getElementById('password');
+        const button = document.getElementById('togglePassword');
+
+        button.addEventListener('click', function () {
+            const visible = input.type === 'password';
+            input.type = visible ? 'text' : 'password';
+            button.classList.toggle('is-visible', visible);
+            button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+        });
+    });
+</script>
+</body>
+</html>

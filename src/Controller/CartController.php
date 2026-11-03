@@ -6,12 +6,17 @@ use App\Entity\Product;
 use App\Entity\User;
 use App\Entity\Order;
 use App\Entity\OrderItems;
+use App\Service\DynamicPricingService;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Event\CartItemAddedEvent;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use App\Message\ProcessPaymentMessage;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Doctrine\DBAL\LockMode;
 
 #[Route('/cart')]
@@ -20,7 +25,8 @@ final class CartController extends AbstractController
     #[Route('', name: 'app_cart', methods: ['GET'])]
     public function index(
         Request $request,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        DynamicPricingService $dynamicPricingService
     ): Response {
         $cart = $request->getSession()->get('cart', []);
         $items = [];
@@ -35,12 +41,14 @@ final class CartController extends AbstractController
                 continue;
             }
 
-            $subtotal = (float) $product->getBasePrice() * $quantity;
+            $currentPrice = (float) $dynamicPricingService->getCurrentPrice($product);
+            $subtotal = $currentPrice * $quantity;
             $total += $subtotal;
 
             $items[] = [
                 'product' => $product,
                 'quantity' => $quantity,
+                'unitPrice' => $currentPrice,
                 'subtotal' => $subtotal,
             ];
         }
@@ -54,7 +62,8 @@ final class CartController extends AbstractController
     #[Route('/add/{id}', name: 'app_cart_add', methods: ['POST'])]
     public function add(
         Product $product,
-        Request $request
+        Request $request,
+        EventDispatcherInterface $eventDispatcher
     ): Response {
         if (!$this->isCsrfTokenValid(
             'add_to_cart_' . $product->getId(),
@@ -98,6 +107,10 @@ final class CartController extends AbstractController
         $cart[$product->getId()] = $newQuantity;
         $request->getSession()->set('cart', $cart);
 
+        $eventDispatcher->dispatch(
+        new CartItemAddedEvent($product, $quantity)
+        );
+
         $this->addFlash('success', 'Product added to your cart!');
 
         return $this->redirectToRoute('app_cart');
@@ -127,11 +140,12 @@ final class CartController extends AbstractController
         return $this->redirectToRoute('app_cart');
     }
 
-    #[Route('/checkout', name: 'app_checkout', methods: ['GET'])]
-    public function checkout(
-        Request $request,
-        EntityManagerInterface $entityManager
-        ): Response {
+#[Route('/checkout', name: 'app_checkout', methods: ['GET'])]
+public function checkout(
+    Request $request,
+    EntityManagerInterface $entityManager,
+    DynamicPricingService $dynamicPricingService
+): Response {
     $cart = $request->getSession()->get('cart', []);
     $items = [];
     $subtotal = 0.0;
@@ -146,12 +160,15 @@ final class CartController extends AbstractController
         }
 
         $quantity = (int) $quantity;
-        $lineTotal = (float) $product->getBasePrice() * $quantity;
+        $currentPrice = (float) $dynamicPricingService->getCurrentPrice($product);
+
+        $lineTotal = $currentPrice * $quantity;
         $subtotal += $lineTotal;
 
         $items[] = [
             'product' => $product,
             'quantity' => $quantity,
+            'unitPrice' => $currentPrice,
             'subtotal' => $lineTotal,
         ];
     }
@@ -164,14 +181,17 @@ final class CartController extends AbstractController
         'shipping' => $shipping,
         'total' => $subtotal + $shipping,
     ]);
-    }
+}
+
 
 
 #[Route('/checkout/place-order', name: 'app_checkout_place_order', methods: ['POST'])]
 public function placeOrder(
     Request $request,
     EntityManagerInterface $entityManager,
-    ProductRepository $productRepository
+    ProductRepository $productRepository,
+    DynamicPricingService $dynamicPricingService,
+    MessageBusInterface $messageBus
 ): Response {
     if (!$this->isCsrfTokenValid(
         'checkout',
@@ -222,6 +242,8 @@ public function placeOrder(
             function (EntityManagerInterface $em) use (
                 $cart,
                 $productRepository,
+                 $dynamicPricingService,
+
                 $user,
                 $fullName,
                 $email,
@@ -276,7 +298,7 @@ public function placeOrder(
                         );
                     }
 
-                    $unitPrice = (float) $product->getBasePrice();
+                    $unitPrice = (float) $dynamicPricingService->getCurrentPrice($product);
                     $subtotal = $unitPrice * $quantity;
                     $total += $subtotal;
 
@@ -307,10 +329,14 @@ public function placeOrder(
         return $this->redirectToRoute('app_checkout');
     }
 
+    $messageBus->dispatch(
+        new ProcessPaymentMessage($order->getId())
+    );  
+
     if (!$user instanceof User) {
         $session->set('guest_order_id', $order->getId());
     }
-
+    
     $session->remove('cart');
     return $this->redirectToRoute('app_order_success', [
         'id' => $order->getId(),

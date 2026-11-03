@@ -5,11 +5,18 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+
+    rate_limiter:
+        enabled: true
+
+        reserve_api:
+            policy: 'fixed_window'
+            limit: 10
+            interval: '1 minute'
+
+        checkout_api:
+            policy: 'fixed_window'
+            limit: 5
+            interval: '1 minute'
     #esi: true
     #fragments: true
-
-when@test:
-    framework:
-        test: true
-        session:
-            storage_factory_id: session.storage.factory.mock_file

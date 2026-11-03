@@ -25,7 +25,7 @@ class CheckoutService
             throw new RuntimeException('Checkout token is required.');
         }
 
-        return $this->entityManager->wrapInTransaction(
+        $order = $this->entityManager->wrapInTransaction(
             function () use ($checkoutToken, $data): Order {
 
                 $reservation = $this->entityManager
@@ -128,17 +128,18 @@ class CheckoutService
 
                 $orderId = $order->getId();
 
-                if ($orderId === null) {
+                 if ($orderId === null) {
                     throw new RuntimeException('Order could not be created.');
                 }
-
-                $this->messageBus->dispatch(
-                    new ProcessPaymentMessage($orderId)
-                );
 
                 return $order;
             }
         );
+        $this->messageBus->dispatch(
+            new ProcessPaymentMessage($order->getId())
+        );
+
+        return $order;
     }
 
     private function requiredString(array $data, string $field): string

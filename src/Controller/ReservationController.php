@@ -11,6 +11,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+
 
 final class ReservationController extends AbstractController
 {
@@ -23,10 +25,32 @@ final class ReservationController extends AbstractController
         int $id,
         Request $request,
         EntityManagerInterface $entityManager,
-        StockService $stockService
+        StockService $stockService,
+        RateLimiterFactory $reserveApiLimiter
     ): JsonResponse {
 
         $user = $this->getUser();
+
+        $clientKey = $user instanceof User
+         ? 'user_'.$user->getId()
+         : 'ip_'.$request->getClientIp();
+
+        $limiter = $reserveApiLimiter->create($clientKey);
+        $limit = $limiter->consume(1);
+
+        if (!$limit->isAccepted()) {
+        $retryAfter = $limit->getRetryAfter();
+
+        $seconds = $retryAfter
+            ? max(1, $retryAfter->getTimestamp() - time())
+            : 60;
+
+        return $this->json(
+            ['error' => 'Too many reservation requests. Try again later.'],
+            429,
+            ['Retry-After' => (string) $seconds]
+        );
+    }
 
         $userId = null;
 

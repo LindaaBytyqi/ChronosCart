@@ -7,6 +7,8 @@ use App\Entity\InventoryReservation;
 use App\Entity\User;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Event\InventoryReservedEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use RuntimeException;
 
 class StockService
@@ -14,6 +16,7 @@ class StockService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ProductRepository $productRepository,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -29,7 +32,7 @@ class StockService
             );
         }
 
-        return $this->entityManager->wrapInTransaction(
+        $reservation = $this->entityManager->wrapInTransaction(
             function () use ($productId, $userId, $quantity, $event) {
                 
                 $product = $this->productRepository
@@ -181,9 +184,20 @@ if (
 
                 $this->entityManager->persist($reservation);
                 $this->entityManager->flush();
-                
+
                 return $reservation;
             }
         );
+
+  
+        $this->eventDispatcher->dispatch(
+            new InventoryReservedEvent($reservation)
+        );
+
+        return $reservation;
     }
 }
+
+
+
+

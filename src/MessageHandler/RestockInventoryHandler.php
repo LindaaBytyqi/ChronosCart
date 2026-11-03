@@ -3,6 +3,7 @@
 namespace App\MessageHandler;
 
 use App\Entity\Order;
+use App\Entity\Product;
 use App\Message\RestockInventoryMessage;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,7 +22,6 @@ final class RestockInventoryHandler
     {
         $this->entityManager->wrapInTransaction(
             function () use ($message): void {
-
                 $order = $this->entityManager->find(
                     Order::class,
                     $message->orderId,
@@ -32,20 +32,24 @@ final class RestockInventoryHandler
                     throw new RuntimeException('Order not found.');
                 }
 
-                if ($order->getStatus() === 'FAILED') {
+                if ($order->getStatus() !== 'PENDING') {
                     return;
                 }
 
-                if ($order->getStatus() !== 'PENDING') {
-                    return;
+                $product = $this->entityManager->find(
+                    Product::class,
+                    $message->productId,
+                    LockMode::PESSIMISTIC_WRITE
+                );
+
+                if (!$product) {
+                    throw new RuntimeException('Product not found.');
                 }
 
                 $matchingQuantity = 0;
 
                 foreach ($order->getOrderItems() as $item) {
-                    if (
-                        $item->getProduct()->getId() === $message->productId
-                    ) {
+                    if ($item->getProduct()->getId() === $message->productId) {
                         $matchingQuantity += $item->getQuantity();
                     }
                 }
@@ -56,10 +60,12 @@ final class RestockInventoryHandler
                     );
                 }
 
-                $order->setStatus('FAILED');
+                $product->setInitialStock(
+                    $product->getInitialStock() + $message->quantity
+                );
 
                 $this->entityManager->flush();
             }
-       );
+        );
     }
 }
