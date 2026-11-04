@@ -24,7 +24,9 @@ class StockService
         int $productId,
         ?int $userId,
         int $quantity,
-        FlashSaleEvent $event
+        FlashSaleEvent $event,
+        ?string $identityHash = null,
+        ?string $ipHash = null
     ): InventoryReservation {
         if ($quantity < 1) {
             throw new RuntimeException(
@@ -33,7 +35,7 @@ class StockService
         }
 
         $reservation = $this->entityManager->wrapInTransaction(
-            function () use ($productId, $userId, $quantity, $event) {
+            function () use ($productId, $userId, $quantity, $event, $identityHash, $ipHash) {
                 
                 $product = $this->productRepository
                     ->findForUpdate($productId);
@@ -85,53 +87,56 @@ class StockService
                 );
                 }
 
-                
-                $userReservedQuantity = 0;
-                $userOrderedQuantity = 0;
+$identityConditions = [];
 
 if ($user !== null) {
-    $userReservedQuantity = (int) $this->entityManager
-        ->createQuery(
-            'SELECT COALESCE(SUM(r.quantity), 0)
-             FROM App\Entity\InventoryReservation r
-             WHERE r.product = :product
-             AND r.user = :user
-             AND r.flashSaleEvent = :event
-             AND r.status = :status
-             AND r.expiresAt > :now'
-        )
-        ->setParameter('product', $product)
-        ->setParameter('user', $user)
-        ->setParameter('event', $event)
-        ->setParameter('status', 'RESERVED')
-        ->setParameter('now', $now)
-        ->getSingleScalarResult();
-
-    $userOrderedQuantity = (int) $this->entityManager
-        ->createQuery(
-            'SELECT COALESCE(SUM(oi.quantity), 0)
-             FROM App\Entity\OrderItems oi
-             JOIN oi.purchaseOrder o
-             WHERE oi.product = :product
-             AND o.user = :user
-             AND o.status IN (:statuses)'
-        )
-        ->setParameter('product', $product)
-        ->setParameter('user', $user)
-        ->setParameter('statuses', ['PENDING', 'PAID'])
-        ->getSingleScalarResult();
+    $identityConditions[] = 'r.user = :user';
 }
 
-if (
-    $userReservedQuantity
-    + $userOrderedQuantity
-    + $quantity > $maxQuantity
-) {
+if ($identityHash !== null) {
+    $identityConditions[] = 'r.identityHash = :identityHash';
+}
+
+if ($identityConditions === []) {
+    throw new RuntimeException(
+        'Unable to identify the customer.'
+    );
+}
+
+$query = $this->entityManager->createQuery(
+    'SELECT COALESCE(SUM(r.quantity), 0)
+     FROM App\Entity\InventoryReservation r
+     WHERE r.product = :product
+     AND r.flashSaleEvent = :event
+     AND (
+         (r.status = :reservedStatus AND r.expiresAt > :now)
+         OR r.status = :convertedStatus
+     )
+     AND (' . implode(' OR ', $identityConditions) . ')'
+);
+
+$query
+    ->setParameter('product', $product)
+    ->setParameter('event', $event)
+    ->setParameter('reservedStatus', 'RESERVED')
+    ->setParameter('convertedStatus', 'CONVERTED')
+    ->setParameter('now', $now);
+
+if ($user !== null) {
+    $query->setParameter('user', $user);
+}
+
+if ($identityHash !== null) {
+    $query->setParameter('identityHash', $identityHash);
+}
+
+$alreadyReservedOrPurchased = (int) $query->getSingleScalarResult();
+
+if ($alreadyReservedOrPurchased + $quantity > $maxQuantity) {
     throw new RuntimeException(
         'You have reached the maximum quantity for this flash sale.'
     );
 }
-
 
 
                 $reservedQuantity = (int) $this->entityManager
@@ -176,10 +181,9 @@ if (
                 $reservation->setFlashSaleEvent($event);
                 $reservation->setQuantity($quantity);
                 $reservation->setStatus('RESERVED');
-                $reservation->setExpiresAt(
-                    $now->modify('+10 minutes')
-                );
-
+                $reservation->setExpiresAt($now->modify('+10 minutes'));
+                $reservation->setIdentityHash($identityHash);
+                $reservation->setIpHash($ipHash);
                 $reservation->setCheckoutToken(bin2hex(random_bytes(32)));
 
                 $this->entityManager->persist($reservation);

@@ -35,6 +35,12 @@ class InventoryReservation
     #[ORM\Column(length: 64, nullable: true, unique: true)]
     private ?string $checkoutToken = null;
 
+    #[ORM\Column(length: 64, nullable:true)]
+    private ?string $identityHash = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $ipHash = null;
+
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -143,4 +149,29 @@ class InventoryReservation
 
         return $this;
     }
+
+    public function getIdentityHash(): ?string
+    {
+        return $this->identityHash;
+    }
+
+    public function setIdentityHash(?string $identityHash): static
+    {
+        $this->identityHash = $identityHash;
+
+        return $this;
+    }
+
+    public function getIpHash(): ?string
+    {
+        return $this->ipHash;
+    }
+
+    public function setIpHash(?string $ipHash): static
+    {
+        $this->ipHash = $ipHash;
+
+        return $this;
+    }
 }
+

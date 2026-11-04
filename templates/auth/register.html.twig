@@ -96,17 +96,28 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const input  = document.getElementById('password');
-        const button = document.getElementById('togglePassword');
+    
+document.addEventListener('DOMContentLoaded', function () {
+    const passwordInput = document.getElementById('password');
+    const toggleButton = document.getElementById('togglePassword');
 
-        button.addEventListener('click', function () {
-            const visible = input.type === 'password';
-            input.type = visible ? 'text' : 'password';
-            button.classList.toggle('is-visible', visible);
-            button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
-        });
+    if (!passwordInput || !toggleButton) {
+        return;
+    }
+
+    toggleButton.addEventListener('click', function () {
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleButton.classList.add('is-visible');
+            toggleButton.setAttribute('aria-label', 'Hide password');
+        } else {
+            passwordInput.type = 'password';
+            toggleButton.classList.remove('is-visible');
+            toggleButton.setAttribute('aria-label', 'Show password');
+        }
     });
+});
+
 </script>
 </body>
 </html>

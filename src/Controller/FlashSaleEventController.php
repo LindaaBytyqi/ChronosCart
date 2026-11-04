@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/flash/sale/event')]
+#[IsGranted('ROLE_ADMIN')]
 final class FlashSaleEventController extends AbstractController
 {
     #[Route('/', name: 'app_flash_sale_event_index', methods: ['GET'])]

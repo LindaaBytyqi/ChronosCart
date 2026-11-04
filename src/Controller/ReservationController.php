@@ -2,17 +2,21 @@
 
 namespace App\Controller;
 
+use App\Dto\ReserveRequest;
 use App\Entity\FlashSaleEvent;
 use App\Entity\User;
+use App\Service\AnonymousIdentityService;
 use App\Service\StockService;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
-
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ReservationController extends AbstractController
 {
@@ -26,45 +30,53 @@ final class ReservationController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         StockService $stockService,
-        RateLimiterFactory $reserveApiLimiter
+        #[Target('reserve_api')]
+        RateLimiterFactory $reserveApiLimiter,
+        AnonymousIdentityService $anonymousIdentityService,
+        ValidatorInterface $validator,
     ): JsonResponse {
 
         $user = $this->getUser();
-
-        $clientKey = $user instanceof User
-         ? 'user_'.$user->getId()
-         : 'ip_'.$request->getClientIp();
-
-        $limiter = $reserveApiLimiter->create($clientKey);
-        $limit = $limiter->consume(1);
-
-        if (!$limit->isAccepted()) {
-        $retryAfter = $limit->getRetryAfter();
-
-        $seconds = $retryAfter
-            ? max(1, $retryAfter->getTimestamp() - time())
-            : 60;
-
-        return $this->json(
-            ['error' => 'Too many reservation requests. Try again later.'],
-            429,
-            ['Retry-After' => (string) $seconds]
-        );
-    }
 
         $userId = null;
 
         if ($user instanceof User) {
             $userId = $user->getId();
 
-        if ($userId === null) {
-            return $this->json([
-             'error' => 'Invalid user account.',
-            ], 401);
-        }
+            if ($userId === null) {
+                return $this->json([
+                    'error' => 'Invalid user account.',
+                ], 401);
+            }
+
+            $clientKey = 'user_' . $userId;
+        } else {
+            $clientKey = null;
         }
 
-       
+        $identityData = $anonymousIdentityService->getIdentityData($request);
+
+        if ($clientKey === null) {
+            $clientKey = 'visitor_' . $identityData['identityHash'];
+        }
+
+        $limiter = $reserveApiLimiter->create($clientKey);
+        $limit = $limiter->consume(1);
+
+        if (!$limit->isAccepted()) {
+            $retryAfter = $limit->getRetryAfter();
+
+            $seconds = $retryAfter
+                ? max(1, $retryAfter->getTimestamp() - time())
+                : 60;
+
+            return $this->json(
+                ['error' => 'Too many reservation requests. Try again later.'],
+                429,
+                ['Retry-After' => (string) $seconds]
+            );
+        }
+
         try {
             $data = $request->toArray();
         } catch (\Throwable) {
@@ -73,15 +85,6 @@ final class ReservationController extends AbstractController
             ], 400);
         }
 
-        $quantity = $data['quantity'] ?? null;
-
-        if (!is_int($quantity) || $quantity < 1) {
-            return $this->json([
-                'error' => 'Quantity must be a positive integer.',
-            ], 400);
-        }
-
-       
         $event = $entityManager
             ->getRepository(FlashSaleEvent::class)
             ->find($id);
@@ -92,7 +95,6 @@ final class ReservationController extends AbstractController
             ], 404);
         }
 
-  
         $now = new \DateTimeImmutable();
 
         if (
@@ -114,12 +116,38 @@ final class ReservationController extends AbstractController
             ], 409);
         }
 
+        $reserveRequest = new ReserveRequest();
+        $reserveRequest->quantity = $data['quantity'] ?? null;
+        $reserveRequest->event = $event;
+        $reserveRequest->user = $user instanceof User ? $user : null;
+        $reserveRequest->identityHash = $identityData['identityHash'];
+
+        $violations = $validator->validate($reserveRequest);
+
+        if (count($violations) > 0) {
+            $errors = [];
+
+            foreach ($violations as $violation) {
+                $errors[] = [
+                    'field' => $violation->getPropertyPath(),
+                    'message' => $violation->getMessage(),
+                ];
+            }
+
+            return $this->json([
+                'error' => 'Validation failed.',
+                'violations' => $errors,
+            ], 422);
+        }
+
         try {
             $reservation = $stockService->reserve(
                 $product->getId(),
                 $userId,
-                $quantity,
-                $event
+                $reserveRequest->quantity,
+                $event,
+                $identityData['identityHash'],
+                $identityData['ipHash']
             );
         } catch (RuntimeException $exception) {
             return $this->json([
@@ -127,7 +155,7 @@ final class ReservationController extends AbstractController
             ], 409);
         }
 
-        return $this->json([
+        $response = $this->json([
             'message' => 'Product reserved successfully.',
             'reservationId' => $reservation->getId(),
             'flashSaleEventId' => $event->getId(),
@@ -139,5 +167,17 @@ final class ReservationController extends AbstractController
                 \DateTimeInterface::ATOM
             ),
         ], 201);
+
+        $response->headers->setCookie(
+            Cookie::create('chronoscart_visitor')
+                ->withValue($identityData['token'])
+                ->withExpires(new \DateTimeImmutable('+1 year'))
+                ->withPath('/')
+                ->withSecure($request->isSecure())
+                ->withHttpOnly(true)
+                ->withSameSite(Cookie::SAMESITE_LAX)
+        );
+
+        return $response;
     }
 }
