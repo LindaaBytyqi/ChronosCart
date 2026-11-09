@@ -35,6 +35,7 @@
         .breadcrumb a:hover {
             color: #202020;
         }
+
         .product-image-wrapper {
             position: relative;
             width: 100%;
@@ -72,7 +73,6 @@
             font-size: 5rem;
         }
 
-        /* Product information */
         .product-information {
             padding: 15px 10px 15px 20px;
         }
@@ -211,6 +211,33 @@
 
 {% block body %}
 
+{# Flash Sale status calculation #}
+{% set flashEvent = flashSaleEvent|default(null) %}
+{% set now = date() %}
+
+{% set isUpcoming =
+    flashEvent and flashEvent.startTime > now
+%}
+
+{% set isExpired =
+    flashEvent and flashEvent.endTime < now
+%}
+
+{% set hasActiveSale =
+    flashEvent
+    and flashEvent.startTime <= now
+    and flashEvent.endTime >= now
+%}
+
+{# Calculate the price #}
+{% set finalPrice = product.basePrice %}
+
+{% if hasActiveSale %}
+    {% set finalPrice =
+        product.basePrice * (100 - flashEvent.discountPercentage) / 100
+    %}
+{% endif %}
+
 <div class="product-details-container">
 
     {# Breadcrumb #}
@@ -271,21 +298,7 @@
                 </p>
 
                 {# Flash Sale and pricing #}
-                {% set flashEvent = flashSaleEvent|default(null) %}
-                {% set now = date() %}
-
-                {% set hasActiveSale =
-                    flashEvent
-                    and flashEvent.startTime <= now
-                    and flashEvent.endTime >= now
-                %}
-
                 {% if hasActiveSale %}
-
-                    {% set discount = flashEvent.discountPercentage %}
-                    {% set finalPrice =
-                        product.basePrice * (100 - discount) / 100
-                    %}
 
                     <div class="flash-sale-box mb-4">
 
@@ -305,7 +318,7 @@
                             </span>
 
                             <span class="badge bg-success">
-                                -{{ discount }}%
+                                -{{ flashEvent.discountPercentage }}%
                             </span>
 
                         </div>
@@ -321,21 +334,24 @@
                 {% else %}
 
                     <div class="mb-4">
+
                         <span class="current-price">
-                            €{{ product.basePrice|number_format(2, '.', ',') }}
+                            €{{ finalPrice|number_format(2, '.', ',') }}
                         </span>
 
-                        {% if flashEvent and flashEvent.startTime > now %}
+                        {% if isUpcoming %}
                             <p class="text-info mt-2 mb-0">
                                 <i class="bi bi-clock"></i>
                                 Flash Sale starts
                                 {{ flashEvent.startTime|date('d M Y, H:i') }}
                             </p>
-                        {% elseif flashEvent and flashEvent.endTime < now %}
+
+                        {% elseif isExpired %}
                             <p class="text-secondary mt-2 mb-0">
-                                Flash Sale has ended.
+                                Flash Sale has ended. Regular price applies.
                             </p>
                         {% endif %}
+
                     </div>
 
                 {% endif %}
@@ -345,7 +361,7 @@
                 {# Stock information #}
                 <div class="stock-information mb-4">
 
-                    {% if product.initialStock > 0 %}
+                    {% if availableStock > 0 %}
 
                         <span class="text-success fw-semibold">
                             <i class="bi bi-check-circle-fill"></i>
@@ -353,7 +369,7 @@
                         </span>
 
                         <p class="text-secondary small mt-2 mb-0">
-                            {{ product.initialStock }} items available
+                            {{ availableStock }} items available
                         </p>
 
                     {% else %}
@@ -368,7 +384,18 @@
                 </div>
 
                 {# Add to Cart #}
-                {% if product.initialStock > 0 %}
+                {% if isUpcoming %}
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary w-100 py-3"
+                        disabled
+                    >
+                        <i class="bi bi-clock me-2"></i>
+                        Sale Not Started
+                    </button>
+
+                {% elseif availableStock > 0 %}
 
                     <form
                         action="{{ path('app_cart_add', {id: product.id}) }}"
@@ -393,7 +420,7 @@
                                 class="form-control quantity-input"
                                 value="1"
                                 min="1"
-                                max="{{ product.initialStock }}"
+                                max="{{ availableStock }}"
                                 required
                             >
                         </div>

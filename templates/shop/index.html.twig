@@ -295,30 +295,28 @@
                             {% endif %}
                         </div>
 
-                        {% if event %}
-                            {% if eventStatus == 'Active' %}
-                                <span class="status-badge status-active">
-                                    ACTIVE
-                                </span>
-                            {% elseif eventStatus == 'Upcoming' %}
-                                <span class="status-badge status-upcoming">
-                                    UPCOMING
-                                </span>
-                            {% else %}
-                                <span class="status-badge status-expired">
-                                    EXPIRED
-                                </span>
-                            {% endif %}
+                        {% if event and eventStatus == 'Active' %}
+                            <span class="status-badge status-active">
+                                ACTIVE
+                            </span>
+                        {% elseif event and eventStatus == 'Upcoming' %}
+                            <span class="status-badge status-upcoming">
+                                UPCOMING
+                            </span>
                         {% endif %}
 
+                      {% set availableStock = availableStockByProductId[product.id] ?? 0 %}
+
                         <div class="product-sku mt-2">
-                            Stock: {{ product.initialStock }}
+                            {% if availableStock > 0 and eventStatus != 'Upcoming' %}
+                                Stock: {{ availableStock }} available
+                            {% else %}
+                                <span class="text-danger">Out of Stock</span>
+                            {% endif %}
                         </div>
 
                     </div>
 
-
-                    
                     <div class="d-flex gap-2 mt-3">
                         <a
                         href="{{ path('app_shop_show', {id: product.id}) }}"
@@ -327,28 +325,39 @@
                         Product Details
                         </a>
 
-                    {% if product.initialStock > 0 %}
-                        <form
-                            action="{{ path('app_cart_add', {id: product.id}) }}"
-                            method="post"
-                            class="flex-fill"
-                        >
-            <input
-                type="hidden"
-                name="_token"
-                value="{{ csrf_token('add_to_cart_' ~ product.id) }}"
-            >
-            <input type="hidden" name="quantity" value="1">
+    {% if eventStatus == 'Upcoming' %}
 
-            <button type="submit" class="btn btn-dark btn-sm w-100">
-                Add to Cart
-            </button>
-        </form>
-    {% else %}
-        <button class="btn btn-secondary btn-sm flex-fill" disabled>
-            Out of Stock
+    <button class="btn btn-secondary btn-sm flex-fill" disabled>
+        Sale Not Started
+    </button>
+
+    {% elseif availableStock > 0 %}
+
+    <form
+        action="{{ path('app_cart_add', {id: product.id}) }}"
+        method="post"
+        class="flex-fill"
+    >
+        <input
+            type="hidden"
+            name="_token"
+            value="{{ csrf_token('add_to_cart_' ~ product.id) }}"
+        >
+
+        <input type="hidden" name="quantity" value="1">
+
+        <button type="submit" class="btn btn-dark btn-sm w-100">
+            Add to Cart
         </button>
-    {% endif %}
+    </form>
+
+{% else %}
+
+    <button class="btn btn-secondary btn-sm flex-fill" disabled>
+        Out of Stock
+    </button>
+
+{% endif %}
 </div>
 
                     </article>

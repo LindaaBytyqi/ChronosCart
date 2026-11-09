@@ -2,13 +2,12 @@
 
 namespace App\Validator;
 
-use App\Dto\ReserveRequest;
+use App\DTO\ReserveRequest;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 use Symfony\Component\Validator\Exception\UnexpectedValueException;
-use App\Entity\User;
 
 class UserFlashSaleLimitValidator extends ConstraintValidator
 {
@@ -33,65 +32,72 @@ class UserFlashSaleLimitValidator extends ConstraintValidator
             );
         }
 
-        // Kontrollojmë të dhënat bazë
         if (
-            $value->event === null
-            || $value->quantity === null
-            || $value->quantity < 1
+            $value->event === null ||
+            $value->quantity === null ||
+            $value->quantity < 1
         ) {
             return;
         }
 
-        $user = $value->user;
-        $identityHash = $value->identityHash;
+        $event = $value->event;
+        $product = $event->getProduct();
+        $maxQuantity = $event->getMaxQuantityPerUser();
 
-        if ($user === null && $identityHash === null) {
-            return;
-        }
-
-        $maxQuantity = $value->event->getMaxQuantityPerUser();
-
-        if ($maxQuantity === null || $maxQuantity < 1) {
+        if ($product === null || $maxQuantity === null || $maxQuantity < 1) {
             return;
         }
 
         $conditions = [];
+        $parameters = [];
 
-        if ($user !== null) {
+        if ($value->user !== null) {
             $conditions[] = 'r.user = :user';
+            $parameters['user'] = $value->user;
         }
 
-        if ($identityHash !== null) {
+        if ($value->identityHash !== null) {
             $conditions[] = 'r.identityHash = :identityHash';
+            $parameters['identityHash'] = $value->identityHash;
+        }
+
+        // if ($value->ipHash !== null) {
+        //     $conditions[] = 'r.ipHash = :ipHash';
+        //     $parameters['ipHash'] = $value->ipHash;
+        // }
+
+        if ($conditions === []) {
+            $this->context
+                ->buildViolation('Unable to identify the customer.')
+                ->atPath('quantity')
+                ->addViolation();
+
+            return;
         }
 
         $now = new \DateTimeImmutable();
 
-        $query = $this->entityManager->createQuery(
-            'SELECT COALESCE(SUM(r.quantity), 0)
-             FROM App\Entity\InventoryReservation r
-             WHERE r.product = :product
-             AND r.flashSaleEvent = :event
-             AND (
-                 (r.status = :reserved AND r.expiresAt > :now)
-                 OR r.status = :converted
-             )
-             AND (' . implode(' OR ', $conditions) . ')'
-        );
+        $dql = '
+            SELECT COALESCE(SUM(r.quantity), 0)
+            FROM App\Entity\InventoryReservation r
+            WHERE r.product = :product
+            AND r.flashSaleEvent = :event
+            AND (
+                (r.status = :reserved AND r.expiresAt > :now)
+                OR r.status = :converted
+            )
+            AND (' . implode(' OR ', $conditions) . ')
+        ';
 
-        $query
-            ->setParameter('product', $value->event->getProduct())
-            ->setParameter('event', $value->event)
+        $query = $this->entityManager->createQuery($dql)
+            ->setParameter('product', $product)
+            ->setParameter('event', $event)
             ->setParameter('reserved', 'RESERVED')
             ->setParameter('converted', 'CONVERTED')
             ->setParameter('now', $now);
 
-        if ($user !== null) {
-            $query->setParameter('user', $user);
-        }
-
-        if ($identityHash !== null) {
-            $query->setParameter('identityHash', $identityHash);
+        foreach ($parameters as $name => $parameter) {
+            $query->setParameter($name, $parameter);
         }
 
         $alreadyReserved = (int) $query->getSingleScalarResult();

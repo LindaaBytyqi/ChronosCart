@@ -18,18 +18,20 @@ class LoginControllerTest extends WebTestCase
         $em = $container->get('doctrine.orm.entity_manager');
         $userRepository = $em->getRepository(User::class);
 
-        // Remove any existing users from the test database
+
         foreach ($userRepository->findAll() as $user) {
             $em->remove($user);
         }
 
         $em->flush();
 
-        // Create a User fixture
         /** @var UserPasswordHasherInterface $passwordHasher */
         $passwordHasher = $container->get('security.user_password_hasher');
 
-        $user = (new User())->setEmail('email@example.com');
+        $user = (new User())
+            ->setEmail('email@example.com')
+            ->setFirstName('Test')
+            ->setLastName('User');
         $user->setPassword($passwordHasher->hashPassword($user, 'password'));
 
         $em->persist($user);
@@ -38,7 +40,6 @@ class LoginControllerTest extends WebTestCase
 
     public function testLogin(): void
     {
-        // Denied - Can't login with invalid email address.
         $this->client->request('GET', '/login');
         self::assertResponseIsSuccessful();
 
@@ -50,10 +51,8 @@ class LoginControllerTest extends WebTestCase
         self::assertResponseRedirects('/login');
         $this->client->followRedirect();
 
-        // Ensure we do not reveal if the user exists or not.
         self::assertSelectorTextContains('.alert-danger', 'Invalid credentials.');
 
-        // Denied - Can't login with invalid password.
         $this->client->request('GET', '/login');
         self::assertResponseIsSuccessful();
 
@@ -65,10 +64,9 @@ class LoginControllerTest extends WebTestCase
         self::assertResponseRedirects('/login');
         $this->client->followRedirect();
 
-        // Ensure we do not reveal the user exists but the password is wrong.
+      
         self::assertSelectorTextContains('.alert-danger', 'Invalid credentials.');
 
-        // Success - Login with valid credentials is allowed.
         $this->client->submitForm('Sign in', [
             '_username' => 'email@example.com',
             '_password' => 'password',
@@ -80,3 +78,5 @@ class LoginControllerTest extends WebTestCase
         self::assertSelectorNotExists('.alert-danger');
     }
 }
+
+

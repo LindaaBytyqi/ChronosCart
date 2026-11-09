@@ -31,4 +31,13 @@ class ProductRepository extends ServiceEntityRepository
         ->setLockMode(LockMode::PESSIMISTIC_WRITE)
         ->getOneOrNullResult();
     }
+    public function findActiveProducts(): array
+    {
+    return $this->createQueryBuilder('p')
+        ->where('p.status = :status')
+        ->setParameter('status', 'ACTIVE')
+        ->orderBy('p.id', 'DESC')
+        ->getQuery()
+        ->getResult();
+    }
 }

@@ -3,11 +3,9 @@
 namespace App\MessageHandler;
 
 use App\Entity\Order;
-use App\Entity\Product;
 use App\Message\RestockInventoryMessage;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use RuntimeException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -28,41 +26,27 @@ final class RestockInventoryHandler
                     LockMode::PESSIMISTIC_WRITE
                 );
 
-                if (!$order) {
-                    throw new RuntimeException('Order not found.');
-                }
-
-                if ($order->getStatus() !== 'PENDING') {
+                if (!$order || $order->getStatus() !== 'PENDING') {
                     return;
                 }
 
-                $product = $this->entityManager->find(
-                    Product::class,
-                    $message->productId,
-                    LockMode::PESSIMISTIC_WRITE
-                );
-
-                if (!$product) {
-                    throw new RuntimeException('Product not found.');
-                }
-
-                $matchingQuantity = 0;
+                $matchingItem = false;
 
                 foreach ($order->getOrderItems() as $item) {
-                    if ($item->getProduct()->getId() === $message->productId) {
-                        $matchingQuantity += $item->getQuantity();
+                    if (
+                        $item->getProduct()?->getId() === $message->productId
+                        && $item->getQuantity() === $message->quantity
+                    ) {
+                        $matchingItem = true;
+                        break;
                     }
                 }
 
-                if ($matchingQuantity !== $message->quantity) {
-                    throw new RuntimeException(
-                        'Restock quantity does not match order items.'
-                    );
+                if (!$matchingItem) {
+                    return;
                 }
 
-                $product->setInitialStock(
-                    $product->getInitialStock() + $message->quantity
-                );
+                $order->setStatus('FAILED');
 
                 $this->entityManager->flush();
             }

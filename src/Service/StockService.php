@@ -5,6 +5,8 @@ namespace App\Service;
 use App\Entity\FlashSaleEvent;
 use App\Entity\InventoryReservation;
 use App\Entity\User;
+use App\Entity\Product;
+use InvalidArgumentException;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Event\InventoryReservedEvent;
@@ -17,6 +19,7 @@ class StockService
         private readonly EntityManagerInterface $entityManager,
         private readonly ProductRepository $productRepository,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly StockCacheService $stockCacheService,
     ) {
     }
 
@@ -29,7 +32,7 @@ class StockService
         ?string $ipHash = null
     ): InventoryReservation {
         if ($quantity < 1) {
-            throw new RuntimeException(
+            throw new InvalidArgumentException(
                 'Quantity must be at least 1.'
             );
         }
@@ -85,6 +88,7 @@ class StockService
                     throw new RuntimeException(
                     'This flash sale is not currently active.'
                 );
+
                 }
 
 $identityConditions = [];
@@ -193,13 +197,66 @@ if ($alreadyReservedOrPurchased + $quantity > $maxQuantity) {
             }
         );
 
-  
+        $this->stockCacheService->invalidateStock($productId);
         $this->eventDispatcher->dispatch(
             new InventoryReservedEvent($reservation)
         );
 
         return $reservation;
     }
+
+
+
+    /**
+ * Returns the actual available stock for a product.
+ */
+public function getAvailableStock(Product $product): int
+{
+    return $this->calculateAvailableStock(
+        $product,
+        new \DateTimeImmutable()
+    );
+}
+
+/**
+ * Calculates available stock using active reservations and orders.
+ */
+private function calculateAvailableStock(
+    Product $product,
+    \DateTimeImmutable $now
+): int {
+    $reservedQuantity = (int) $this->entityManager
+        ->createQuery(
+            'SELECT COALESCE(SUM(r.quantity), 0)
+             FROM App\Entity\InventoryReservation r
+             WHERE r.product = :product
+             AND r.status = :status
+             AND r.expiresAt > :now'
+        )
+        ->setParameter('product', $product)
+        ->setParameter('status', 'RESERVED')
+        ->setParameter('now', $now)
+        ->getSingleScalarResult();
+
+    $orderedQuantity = (int) $this->entityManager
+        ->createQuery(
+            'SELECT COALESCE(SUM(oi.quantity), 0)
+             FROM App\Entity\OrderItems oi
+             JOIN oi.purchaseOrder o
+             WHERE oi.product = :product
+             AND o.status IN (:statuses)'
+        )
+        ->setParameter('product', $product)
+        ->setParameter('statuses', ['PENDING', 'PAID'])
+        ->getSingleScalarResult();
+
+    return max(
+        0,
+        (int) $product->getInitialStock()
+            - $reservedQuantity
+            - $orderedQuantity
+    );
+}
 }
 
 

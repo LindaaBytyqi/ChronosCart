@@ -9,6 +9,7 @@ use App\Message\ProcessPaymentMessage;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
+use App\Service\DynamicPricingService;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 class CheckoutService
@@ -16,6 +17,7 @@ class CheckoutService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $messageBus,
+        private readonly DynamicPricingService $dynamicPricingService,
     ) {
     }
 
@@ -48,7 +50,12 @@ class CheckoutService
                     );
                 }
 
-                if ($reservation->getExpiresAt() <= new \DateTimeImmutable()) {
+                $expiresAt = $reservation->getExpiresAt();
+
+                if (
+                    $expiresAt === null
+                    || $expiresAt <= new \DateTimeImmutable()
+                ) {
                     throw new RuntimeException('Reservation has expired.');
                 }
 
@@ -72,12 +79,17 @@ class CheckoutService
                 $zipCode = $this->requiredString($data, 'zipCode');
                 $paymentMethod = $this->requiredString($data, 'paymentMethod');
 
+                if (!in_array($paymentMethod, ['cod', 'online'], true)) {
+                    throw new RuntimeException('Invalid payment method.');
+                }
+
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     throw new RuntimeException('Invalid email address.');
 
                 }
 
-                $basePriceCents = $this->toCents($product->getBasePrice());
+                $currentPrice = $this->dynamicPricingService->getCurrentPrice($product);
+                $basePriceCents = $this->toCents($currentPrice);
                 $discountBps = $this->toCents(
                     $event->getDiscountPercentage() ?? '0'
                 );
@@ -135,10 +147,11 @@ class CheckoutService
                 return $order;
             }
         );
-        $this->messageBus->dispatch(
-            new ProcessPaymentMessage($order->getId())
-        );
-
+        if ($order->getPaymentMethod() === 'online') {
+            $this->messageBus->dispatch(
+                new ProcessPaymentMessage($order->getId())
+            );
+        }
         return $order;
     }
 

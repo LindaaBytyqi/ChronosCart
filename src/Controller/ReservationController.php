@@ -2,9 +2,10 @@
 
 namespace App\Controller;
 
-use App\Dto\ReserveRequest;
+use App\DTO\ReserveRequest;
 use App\Entity\FlashSaleEvent;
 use App\Entity\User;
+use InvalidArgumentException;
 use App\Service\AnonymousIdentityService;
 use App\Service\StockService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,7 +31,7 @@ final class ReservationController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         StockService $stockService,
-        #[Target('reserve_api')]
+        #[Target('reserve_api.limiter')]
         RateLimiterFactory $reserveApiLimiter,
         AnonymousIdentityService $anonymousIdentityService,
         ValidatorInterface $validator,
@@ -121,7 +122,8 @@ final class ReservationController extends AbstractController
         $reserveRequest->event = $event;
         $reserveRequest->user = $user instanceof User ? $user : null;
         $reserveRequest->identityHash = $identityData['identityHash'];
-
+        $reserveRequest->ipHash = $identityData['ipHash'];
+        
         $violations = $validator->validate($reserveRequest);
 
         if (count($violations) > 0) {
@@ -149,6 +151,10 @@ final class ReservationController extends AbstractController
                 $identityData['identityHash'],
                 $identityData['ipHash']
             );
+        } catch (InvalidArgumentException $exception) {
+            return $this->json([
+                'error' => $exception->getMessage(),
+            ], 400);
         } catch (RuntimeException $exception) {
             return $this->json([
                 'error' => $exception->getMessage(),

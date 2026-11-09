@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Dto;
+namespace App\DTO;
 
 use App\Entity\FlashSaleEvent;
 use App\Entity\User;
@@ -20,4 +20,6 @@ class ReserveRequest
     public ?User $user = null;
 
     public ?string $identityHash = null;
+
+    public ?string $ipHash = null;
 }
