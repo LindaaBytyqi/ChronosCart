@@ -43,7 +43,7 @@ class LoginControllerTest extends WebTestCase
         $this->client->request('GET', '/login');
         self::assertResponseIsSuccessful();
 
-        $this->client->submitForm('Sign in', [
+        $this->client->submitForm('LOGIN', [
             '_username' => 'doesNotExist@example.com',
             '_password' => 'password',
         ]);
@@ -51,12 +51,12 @@ class LoginControllerTest extends WebTestCase
         self::assertResponseRedirects('/login');
         $this->client->followRedirect();
 
-        self::assertSelectorTextContains('.alert-danger', 'Invalid credentials.');
+        self::assertSelectorTextContains('.alert[role="alert"]', 'Invalid credentials.');
 
         $this->client->request('GET', '/login');
         self::assertResponseIsSuccessful();
 
-        $this->client->submitForm('Sign in', [
+        $this->client->submitForm('LOGIN', [
             '_username' => 'email@example.com',
             '_password' => 'bad-password',
         ]);
@@ -65,18 +65,18 @@ class LoginControllerTest extends WebTestCase
         $this->client->followRedirect();
 
       
-        self::assertSelectorTextContains('.alert-danger', 'Invalid credentials.');
-
-        $this->client->submitForm('Sign in', [
+       self::assertSelectorTextContains('.alert[role="alert"]', 'Invalid credentials.');
+        $this->client->submitForm('LOGIN', [
             '_username' => 'email@example.com',
             '_password' => 'password',
         ]);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/shop');
         $this->client->followRedirect();
 
-        self::assertSelectorNotExists('.alert-danger');
+        self::assertSelectorNotExists('.alert[role="alert"]');
     }
 }
+
 
 

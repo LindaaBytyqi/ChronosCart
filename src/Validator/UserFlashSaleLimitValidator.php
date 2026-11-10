@@ -61,11 +61,6 @@ class UserFlashSaleLimitValidator extends ConstraintValidator
             $parameters['identityHash'] = $value->identityHash;
         }
 
-        // if ($value->ipHash !== null) {
-        //     $conditions[] = 'r.ipHash = :ipHash';
-        //     $parameters['ipHash'] = $value->ipHash;
-        // }
-
         if ($conditions === []) {
             $this->context
                 ->buildViolation('Unable to identify the customer.')
@@ -102,7 +97,7 @@ class UserFlashSaleLimitValidator extends ConstraintValidator
 
         $alreadyReserved = (int) $query->getSingleScalarResult();
 
-        if ($alreadyReserved + $value->quantity > $maxQuantity) {
+        if (($alreadyReserved + $value->quantity) > $maxQuantity) {
             $this->context
                 ->buildViolation($constraint->message)
                 ->atPath('quantity')

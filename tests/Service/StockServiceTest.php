@@ -110,6 +110,7 @@ class StockServiceTest extends KernelTestCase
         $productRepository = $this->createMock(ProductRepository::class);
         $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
         $stockCacheService = $this->createMock(StockCacheService::class);
+        $userRepository = $this->createMock(\App\Repository\UserRepository::class);
 
         $product = new Product();
         $this->setProductId($product, 1);
@@ -139,6 +140,16 @@ class StockServiceTest extends KernelTestCase
         $queryBuilder->method('orWhere')->willReturnSelf();
         $queryBuilder->method('setParameter')->willReturnSelf();
         $queryBuilder->method('getQuery')->willReturn($query);
+
+        $userRepository
+            ->method('find')
+            ->with(1)
+            ->willReturn($user);
+
+        $entityManager
+            ->method('getRepository')
+            ->with(User::class)
+            ->willReturn($userRepository);
 
         $entityManager
             ->method('createQueryBuilder')

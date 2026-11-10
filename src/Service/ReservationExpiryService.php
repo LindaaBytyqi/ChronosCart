@@ -9,6 +9,7 @@ class ReservationExpiryService
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly StockCacheService $stockCacheService,
     ) {
     }
 
@@ -26,11 +27,23 @@ class ReservationExpiryService
             ->getQuery()
             ->getResult();
 
+        $productIds = [];
+
         foreach ($reservations as $reservation) {
+            $productId = $reservation->getProduct()?->getId();
+
+            if ($productId !== null) {
+                $productIds[$productId] = true;
+            }
+
             $reservation->setStatus('EXPIRED');
         }
 
         $this->entityManager->flush();
+
+        foreach (array_keys($productIds) as $productId) {
+            $this->stockCacheService->invalidateStock($productId);
+        }
 
         return count($reservations);
     }
