@@ -2,6 +2,8 @@
 
 namespace App\Tests\Service;
 
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\FlockStore;
 use App\Entity\FlashSaleEvent;
 use App\Entity\InventoryReservation;
 use App\Entity\Product;
@@ -18,18 +20,22 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 class StockServiceTest extends KernelTestCase
 {
     private function createStockService(
-        EntityManagerInterface $entityManager,
-        ProductRepository $productRepository,
-        EventDispatcherInterface $eventDispatcher,
-        StockCacheService $stockCacheService
-    ): StockService {
-        return new StockService(
-            $entityManager,
-            $productRepository,
-            $eventDispatcher,
-            $stockCacheService
-        );
-    }
+    EntityManagerInterface $entityManager,
+    ProductRepository $productRepository,
+    EventDispatcherInterface $eventDispatcher,
+    
+    StockCacheService $stockCacheService
+): StockService {
+    $lockFactory = new LockFactory(new FlockStore());
+
+    return new StockService(
+        $entityManager,
+        $productRepository,
+        $eventDispatcher,
+        $stockCacheService,
+        $lockFactory
+    );
+}
 
     public function testReservationRejectsQuantityLessThanOne(): void
     {

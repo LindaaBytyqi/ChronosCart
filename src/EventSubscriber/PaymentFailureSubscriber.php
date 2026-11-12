@@ -46,20 +46,11 @@ final class PaymentFailureSubscriber implements EventSubscriberInterface
             return;
         }
 
-        foreach ($order->getOrderItems() as $item) {
-            $product = $item->getProduct();
-
-            if (!$product || !$product->getId()) {
-                continue;
-            }
-
-            $this->messageBus->dispatch(
-                new RestockInventoryMessage(
-                    $product->getId(),
-                    $item->getQuantity(),
-                    $order->getId()
-                )
-            );
-        }
+        $this->messageBus->dispatch(
+            new RestockInventoryMessage($order->getId())
+        );
     }
 }
+
+
+

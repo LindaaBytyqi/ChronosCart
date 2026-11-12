@@ -1,10 +1,10 @@
 <?php
 
 $totalRequests = (int) ($argv[1] ?? 20);
-$eventId = (int) ($argv[2] ?? 2);
+$eventId = (int) ($argv[2] ?? 4);
 $concurrency = min(100, $totalRequests);
 
-$url = "http://127.0.0.1:8081/api/flash-sales/{$eventId}/reserve";
+$url = "http://127.0.0.1/api/flash-sales/{$eventId}/reserve";
 
 $results = [];
 $errors = 0;
@@ -50,6 +50,11 @@ for ($offset = 0; $offset < $totalRequests; $offset += $concurrency) {
     foreach ($handles as $ch) {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $response = curl_multi_getcontent($ch);
+
+        if ($httpCode >= 500) {
+            echo "\nHTTP {$httpCode} ERROR:\n";
+            echo substr(strip_tags($response), 0, 1500) . "\n";
+        }
 
         if (curl_errno($ch)) {
             $errors++;

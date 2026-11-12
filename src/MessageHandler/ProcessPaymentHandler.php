@@ -8,14 +8,17 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 #[AsMessageHandler]
 final class ProcessPaymentHandler
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-    ) {
-    }
+    private readonly EntityManagerInterface $entityManager,
+    #[Autowire('%env(bool:PAYMENT_SIMULATE_FAILURE)%')]
+    private readonly bool $simulateFailure,
+) {
+}
 
     public function __invoke(ProcessPaymentMessage $message): void
     {
@@ -39,7 +42,10 @@ final class ProcessPaymentHandler
                     return;
                 }
 
-       
+                if ($this->simulateFailure) {
+                    throw new RuntimeException('Simulated payment gateway failure.');
+                }
+
                 $order->setStatus('PAID');
 
                 $this->entityManager->flush();
@@ -47,3 +53,8 @@ final class ProcessPaymentHandler
         );
     }
 }
+
+
+
+
+

@@ -32,22 +32,6 @@ final class RestockInventoryHandler
                     return [];
                 }
 
-                $matchingItem = false;
-
-                foreach ($order->getOrderItems() as $item) {
-                    if (
-                        $item->getProduct()?->getId() === $message->productId
-                        && $item->getQuantity() === $message->quantity
-                    ) {
-                        $matchingItem = true;
-                        break;
-                    }
-                }
-
-                if (!$matchingItem) {
-                    return [];
-                }
-
                 $productIds = [];
 
                 foreach ($order->getOrderItems() as $item) {

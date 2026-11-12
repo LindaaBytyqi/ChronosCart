@@ -9,12 +9,14 @@ use App\Service\StockCacheService;
 use App\Service\StockService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class ShopController extends AbstractController
 {
     #[Route('/shop', name: 'app_shop', methods: ['GET'])]
     public function index(
+    Request $request,
     ProductRepository $productRepository,
     FlashSaleEventRepository $flashSaleEventRepository,
     StockService $stockService,
@@ -52,15 +54,45 @@ final class ShopController extends AbstractController
             );
     }
 
-    return $this->render('shop/index.html.twig', [
-        'products' => $products,
-        'eventsByProductId' => $eventsByProductId,
-        'availableStockByProductId' => $availableStockByProductId,
+   $response = $this->render('shop/index.html.twig', [
+    'products' => $products,
+    'eventsByProductId' => $eventsByProductId,
+    'availableStockByProductId' => $availableStockByProductId,
     ]);
-    }
+
+$cacheData = [];
+
+foreach ($products as $product) {
+    $id = $product->getId();
+
+    $event = $eventsByProductId[$id] ?? null;
+
+    $cacheData[] = [
+        'id' => $id,
+        'name' => $product->getName(),
+        'price' => $product->getBasePrice(),
+        'stock' => $availableStockByProductId[$id] ?? 0,
+        'status' => $product->getStatus(),
+        'discount' => $event?->getDiscountPercentage(),
+        'start' => $event?->getStartTime()?->format('c'),
+        'end' => $event?->getEndTime()?->format('c'),
+    ];
+}
+
+$response->setEtag(hash('sha256', json_encode($cacheData)));
+$response->setPublic();
+$response->setMaxAge(10);
+
+if ($response->isNotModified($request)) {
+    return $response;
+}
+
+return $response;
+}
 
     #[Route('/shop/product/{id}', name: 'app_shop_show', methods: ['GET'])]
     public function show(
+        Request $request,
         Product $product,
         FlashSaleEventRepository $flashSaleEventRepository,
         StockService $stockService,
@@ -85,12 +117,33 @@ final class ShopController extends AbstractController
         'product' => $product
     ]);
 
-    return $this->render('shop/show.html.twig', [
-        'product' => $product,
-        'availableStock' => $availableStock,
-        'flashSaleEvent' => $flashSaleEvent,
-        'stockFromService' => $stockFromService,
-    ]);
-    }
+    $response = $this->render('shop/show.html.twig', [
+    'product' => $product,
+    'availableStock' => $availableStock,
+    'flashSaleEvent' => $flashSaleEvent,
+    'stockFromService' => $stockFromService,
+]);
+
+$cacheData = [
+    'id' => $product->getId(),
+    'name' => $product->getName(),
+    'price' => $product->getBasePrice(),
+    'stock' => $availableStock,
+    'status' => $product->getStatus(),
+    'discount' => $flashSaleEvent?->getDiscountPercentage(),
+    'start' => $flashSaleEvent?->getStartTime()?->format('c'),
+    'end' => $flashSaleEvent?->getEndTime()?->format('c'),
+];
+
+$response->setEtag(hash('sha256', json_encode($cacheData)));
+$response->setPublic();
+$response->setMaxAge(10);
+
+if ($response->isNotModified($request)) {
+    return $response;
+}
+
+return $response;
+}
 
 }

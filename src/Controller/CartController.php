@@ -289,14 +289,39 @@ public function placeOrder(
                         );
                     }
 
-                    if ($quantity > $product->getInitialStock()) {
-                        throw new \RuntimeException(
-                            sprintf(
-                                'Not enough stock for "%s". Please update your cart.',
-                                $product->getName()
-                            )
-                        );
-                    }
+                    $connection = $em->getConnection();
+
+$reservedQuantity = (int) $connection->fetchOne(
+    "SELECT COALESCE(SUM(quantity), 0)
+     FROM inventory_reservation
+     WHERE product_id = ?
+     AND status = 'RESERVED'
+     AND expires_at > NOW()",
+    [(int) $productId]
+);
+
+$orderedQuantity = (int) $connection->fetchOne(
+    "SELECT COALESCE(SUM(oi.quantity), 0)
+     FROM order_items oi
+     INNER JOIN `order` o ON o.id = oi.purchase_order_id
+     WHERE oi.product_id = ?
+     AND o.status IN ('PENDING', 'PAID')",
+    [(int) $productId]
+);
+
+$availableStock = $product->getInitialStock()
+    - $reservedQuantity
+    - $orderedQuantity;
+
+if ($quantity > $availableStock) {
+    throw new \RuntimeException(
+        sprintf(
+            'Not enough stock for "%s". Only %d unit(s) available.',
+            $product->getName(),
+            max(0, $availableStock)
+        )
+    );
+}
 
                     $unitPrice = (float) $dynamicPricingService->getCurrentPrice($product);
                     $subtotal = $unitPrice * $quantity;
@@ -310,10 +335,6 @@ public function placeOrder(
                     $orderItem->setPurchaseOrder($order);
 
                     $order->addOrderItem($orderItem);
-                    $product->setInitialStock(
-                        $product->getInitialStock() - $quantity
-                    );
-
                     $em->persist($orderItem);
                 }
 
