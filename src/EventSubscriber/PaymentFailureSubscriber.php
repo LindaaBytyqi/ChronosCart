@@ -12,45 +12,23 @@ use Symfony\Component\Messenger\MessageBusInterface;
 
 final class PaymentFailureSubscriber implements EventSubscriberInterface
 {
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-        private readonly MessageBusInterface $messageBus,
-    ) {
+    public function __construct(private readonly MessageBusInterface $messageBus)
+    {
     }
 
     public static function getSubscribedEvents(): array
     {
-        return [
-            WorkerMessageFailedEvent::class => 'onPaymentFailed',
-        ];
+        return [WorkerMessageFailedEvent::class => 'onPaymentFailed'];
     }
 
     public function onPaymentFailed(WorkerMessageFailedEvent $event): void
     {
         $message = $event->getEnvelope()->getMessage();
 
-        if (!$message instanceof ProcessPaymentMessage) {
+        if (!$message instanceof ProcessPaymentMessage || $event->willRetry()) {
             return;
         }
 
-        if ($event->willRetry()) {
-            return;
-        }
-
-        $order = $this->entityManager->find(
-            Order::class,
-            $message->orderId
-        );
-
-        if (!$order || $order->getStatus() !== 'PENDING') {
-            return;
-        }
-
-        $this->messageBus->dispatch(
-            new RestockInventoryMessage($order->getId())
-        );
+        $this->messageBus->dispatch(new RestockInventoryMessage($message->orderId));
     }
 }
-
-
-

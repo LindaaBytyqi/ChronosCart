@@ -13,6 +13,10 @@ use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use App\Exception\InsufficientStockException;
+use App\Exception\PurchaseLimitExceededException;
+use App\Exception\SaleNotActiveException;
+use App\Exception\TooBusyException;
 
 class StockService
 {
@@ -39,16 +43,19 @@ class StockService
             );
         }
 
-        $lock = $this->lockFactory->createLock(
-            'flash_sale_product_' . $productId,
-            60.0
-        );
+$lock = $this->lockFactory->createLock('flash_sale_product_' . $productId, 10.0);
+$acquired = false;
 
-        if (!$lock->acquire(true)) {
-            throw new RuntimeException(
-                'Unable to acquire product stock lock.'
-            );
-        }
+for ($i = 0; $i < 20 && !$acquired; $i++) {
+    $acquired = $lock->acquire(false);
+    if (!$acquired) {
+        usleep(random_int(20000, 60000));
+    }
+}
+
+if (!$acquired) {
+    throw new TooBusyException('Too many requests, try again.');
+}
 
         try {
 
@@ -106,7 +113,7 @@ class StockService
                         || $now < $event->getStartTime()
                         || $now >= $event->getEndTime()
                     ) {
-                        throw new RuntimeException(
+                        throw new SaleNotActiveException(
                             'This flash sale is not currently active.'
                         );
                     }
@@ -119,6 +126,10 @@ class StockService
 
                     if ($identityHash !== null) {
                         $identityConditions[] = 'r.identityHash = :identityHash';
+                    }
+
+                    if ($ipHash !== null) {
+                        $identityConditions[] = 'r.ipHash = :ipHash';
                     }
 
                     if ($identityConditions === []) {
@@ -155,6 +166,10 @@ class StockService
                         $query->setParameter('identityHash', $identityHash);
                     }
 
+                    if ($ipHash !== null) {
+                        $query->setParameter('ipHash', $ipHash);
+                    }
+
                     $alreadyReservedOrPurchased = (int) $query
                         ->getSingleScalarResult();
 
@@ -162,7 +177,7 @@ class StockService
                         $alreadyReservedOrPurchased + $quantity
                         > $maxQuantity
                     ) {
-                        throw new RuntimeException(
+                        throw new PurchaseLimitExceededException(
                             'You have reached the maximum quantity for this flash sale.'
                         );
                     }
@@ -200,7 +215,7 @@ class StockService
                         - $orderedQuantity;
 
                     if ($quantity > $availableStock) {
-                        throw new RuntimeException(
+                        throw new InsufficientStockException(
                             'Not enough stock available.'
                         );
                     }
@@ -238,6 +253,23 @@ class StockService
             $lock->release();
         }
     }
+
+
+    public function release(int $productId, array $tokens): void
+    {
+        if ($tokens === []) {
+            return;
+        }
+
+        $this->entityManager->createQuery(
+            "UPDATE App\Entity\InventoryReservation r
+            SET r.status = 'EXPIRED'
+            WHERE r.checkoutToken IN (:t) AND r.status = 'RESERVED'"
+        )->setParameter('t', $tokens)->execute();
+
+        $this->stockCacheService->invalidateStock($productId);
+    }
+
 
     /**
      * Returns the actual available stock for a product.

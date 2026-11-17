@@ -37,6 +37,31 @@ services:
       database:
         condition: service_healthy
 
+
+
+  messenger-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chronoscart_worker
+    restart: unless-stopped
+    command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://root:root@database:3306/chronoscart?serverVersion=8.0&charset=utf8mb4"
+      REDIS_URL: "redis://host.docker.internal:6379"
+      MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - var_data:/var/www/html/var
+    depends_on:
+      database:
+        condition: service_healthy
+
+
+
+
   mailer:
     image: axllent/mailpit
     container_name: chronoscart_mailer
@@ -49,3 +74,6 @@ volumes:
   db_data:
   vendor_data:
   var_data:
+
+
+

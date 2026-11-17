@@ -43,7 +43,7 @@ final class DynamicPricingServiceTest extends TestCase
         $entityManager
             ->expects(self::once())
             ->method('createQueryBuilder')
-            ->willReturn($this->createQueryBuilderMock(5));
+            ->willReturn($this->createQueryBuilderMock(1));
 
         $entityManager
             ->expects(self::never())
@@ -160,3 +160,6 @@ final class DynamicPricingServiceTest extends TestCase
         self::assertSame('100.00', $service->getCurrentPrice($product));
     }
 }
+
+
+

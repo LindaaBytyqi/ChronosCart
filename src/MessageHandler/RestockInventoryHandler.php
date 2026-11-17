@@ -44,6 +44,12 @@ final class RestockInventoryHandler
 
                 $order->setStatus('FAILED');
 
+                $this->entityManager->createQuery(
+                    "UPDATE App\Entity\InventoryReservation r
+                     SET r.status = 'EXPIRED'
+                     WHERE r.purchaseOrder = :o AND r.status = 'CONVERTED'"
+                )->setParameter('o', $order)->execute();
+
                 $this->entityManager->flush();
 
                 return array_keys($productIds);
@@ -54,4 +60,7 @@ final class RestockInventoryHandler
             $this->stockCacheService->invalidateStock($productId);
         }
     }
+
+
 }
+

@@ -40,16 +40,17 @@ class DynamicPricingService
         }
     
         $soldUnits = $this->entityManager
-            ->createQueryBuilder()
-            ->select('COALESCE(SUM(oi.quantity), 0)')
-            ->from(\App\Entity\OrderItems::class, 'oi')
-            ->join('oi.purchaseOrder', 'o')
-            ->where('oi.product = :product')
-            ->andWhere('o.status = :status')
-            ->setParameter('product', $product)
-            ->setParameter('status', 'PAID')
-            ->getQuery()
-            ->getSingleScalarResult();
+
+        ->createQueryBuilder()
+        ->select('COALESCE(SUM(oi.quantity), 0)')
+        ->from(\App\Entity\OrderItems::class, 'oi')
+        ->join('oi.purchaseOrder', 'o')
+        ->where('oi.product = :product')
+        ->andWhere('o.status = :status')
+        ->setParameter('product', $product)
+        ->setParameter('status', 'PAID')
+        ->getQuery()
+        ->getSingleScalarResult();
 
         $levels = intdiv((int) $soldUnits, 100);
 

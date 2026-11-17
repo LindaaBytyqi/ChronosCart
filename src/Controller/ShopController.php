@@ -40,18 +40,14 @@ final class ShopController extends AbstractController
 
     foreach ($products as $product) {
         $productId = $product->getId();
-
         if ($productId === null) {
             continue;
         }
 
-        $stockFromService = $stockService->getAvailableStock($product);
-
-        $availableStockByProductId[$productId] =
-            $stockCacheService->getOrLoadStock(
-                $productId,
-                fn(): int => $stockFromService
-            );
+        $availableStockByProductId[$productId] = $stockCacheService->getOrLoadStock(
+            $productId,
+            fn(): int => $stockService->getAvailableStock($product)
+        );
     }
 
    $response = $this->render('shop/index.html.twig', [
@@ -100,42 +96,25 @@ return $response;
     ): Response {
         $productId = $product->getId();
 
-    if ($productId === null || $product->getStatus() !== 'ACTIVE') {
-        throw $this->createNotFoundException('Product not found.');
-    }
+    if ($product->getStatus() !== 'ACTIVE') {
+    throw $this->createNotFoundException('Product not found.');
+}
 
-    $stockFromService = $stockService->getAvailableStock($product);
+$flashSaleEvent = $flashSaleEventRepository->findOneBy(['product' => $product]);
 
-    $stockFromCache = $stockCacheService->getOrLoadStock(
-        $productId,
-        fn(): int => $stockFromService
-    );
+$availableStock = $stockCacheService->getOrLoadStock(
+    $product->getId(),
+    fn(): int => $stockService->getAvailableStock($product)
+);
 
-    $availableStock = $stockFromCache;
-
-    $flashSaleEvent = $flashSaleEventRepository->findOneBy([
-        'product' => $product
-    ]);
-
-    $response = $this->render('shop/show.html.twig', [
-    'product' => $product,
-    'availableStock' => $availableStock,
-    'flashSaleEvent' => $flashSaleEvent,
-    'stockFromService' => $stockFromService,
-]);
-
-$cacheData = [
+$response = new Response();
+$response->setEtag(hash('sha256', json_encode([
     'id' => $product->getId(),
-    'name' => $product->getName(),
-    'price' => $product->getBasePrice(),
+    'price' => $product->getBasePrice(),   
     'stock' => $availableStock,
-    'status' => $product->getStatus(),
     'discount' => $flashSaleEvent?->getDiscountPercentage(),
-    'start' => $flashSaleEvent?->getStartTime()?->format('c'),
     'end' => $flashSaleEvent?->getEndTime()?->format('c'),
-];
-
-$response->setEtag(hash('sha256', json_encode($cacheData)));
+])));
 $response->setPublic();
 $response->setMaxAge(10);
 
@@ -143,7 +122,11 @@ if ($response->isNotModified($request)) {
     return $response;
 }
 
-return $response;
-}
+return $this->render('shop/show.html.twig', [
+    'product' => $product,
+    'availableStock' => $availableStock,
+    'flashSaleEvent' => $flashSaleEvent,
+], $response);
 
+    }
 }

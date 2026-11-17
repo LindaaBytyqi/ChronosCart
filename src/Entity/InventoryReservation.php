@@ -44,6 +44,9 @@ class InventoryReservation
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $createdAt = null;
 
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Order $purchaseOrder = null;
 
     public function __construct()
     {
@@ -170,6 +173,18 @@ class InventoryReservation
     public function setIpHash(?string $ipHash): static
     {
         $this->ipHash = $ipHash;
+
+        return $this;
+    }
+
+    public function getPurchaseOrder(): ?Order
+    {
+        return $this->purchaseOrder;
+    }
+
+    public function setPurchaseOrder(?Order $purchaseOrder): static
+    {
+        $this->purchaseOrder = $purchaseOrder;
 
         return $this;
     }

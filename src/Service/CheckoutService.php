@@ -4,6 +4,9 @@ namespace App\Service;
 
 use App\Entity\InventoryReservation;
 use App\Entity\Order;
+use App\Entity\FlashSaleEvent;
+use App\Entity\Product;
+use App\Entity\User;
 use App\Entity\OrderItems;
 use App\Message\ProcessPaymentMessage;
 use Doctrine\DBAL\LockMode;
@@ -18,142 +21,134 @@ class CheckoutService
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $messageBus,
         private readonly DynamicPricingService $dynamicPricingService,
+        private readonly StockCacheService $stockCacheService,
+        
     ) {
     }
 
-    public function checkout(string $checkoutToken, array $data): Order
+    public function checkout(array $checkoutTokens, array $data, ?User $user): Order
     {
-        if ($checkoutToken === '') {
-            throw new RuntimeException('Checkout token is required.');
-        }
+    $tokens = array_values(array_unique(array_filter($checkoutTokens, 'is_string')));
+    sort($tokens);
 
-        $order = $this->entityManager->wrapInTransaction(
-            function () use ($checkoutToken, $data): Order {
+    if ($tokens === []) {
+        throw new RuntimeException('Your cart is empty.');
+    }
 
-                $reservation = $this->entityManager
+    $fullName = $this->requiredString($data, 'fullName');
+    $email    = $this->requiredString($data, 'email');
+    $phone    = $this->requiredString($data, 'phone');
+    $address  = $this->requiredString($data, 'address');
+    $city     = $this->requiredString($data, 'city');
+    $zipCode  = $this->requiredString($data, 'zipCode');
+    $payment  = $this->requiredString($data, 'paymentMethod');
+
+    if (!in_array($payment, ['cod', 'online'], true)) {
+        throw new RuntimeException('Invalid payment method.');
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Invalid email address.');
+    }
+
+    $productIds = [];
+
+    $order = $this->entityManager->wrapInTransaction(
+        function () use ($tokens, $user, $fullName, $email, $phone, $address, $city, $zipCode, $payment, &$productIds): Order {
+            $order = new Order();
+            $order->setUser($user);
+            $order->setFullName($fullName);
+            $order->setEmail($email);
+            $order->setPhone($phone);
+            $order->setAddress($address);
+            $order->setCity($city);
+            $order->setZipCode($zipCode);
+            $order->setPaymentMethod($payment);
+            $order->setStatus('PENDING');
+
+            $totalCents = 0;
+            $now = new \DateTimeImmutable();
+
+            foreach ($tokens as $token) {
+                $r = $this->entityManager
                     ->getRepository(InventoryReservation::class)
                     ->createQueryBuilder('r')
-                    ->where('r.checkoutToken = :token')
-                    ->setParameter('token', $checkoutToken)
+                    ->where('r.checkoutToken = :t')
+                    ->setParameter('t', $token)
                     ->getQuery()
                     ->setLockMode(LockMode::PESSIMISTIC_WRITE)
                     ->getOneOrNullResult();
 
-                if (!$reservation) {
+                if (!$r) {
                     throw new RuntimeException('Reservation not found.');
                 }
-
-
-                if ($reservation->getStatus() !== 'RESERVED') {
-                    throw new RuntimeException(
-                        'This reservation is no longer available.'
-                    );
+                if ($r->getStatus() !== 'RESERVED') {
+                    throw new RuntimeException('A reservation is no longer available.');
+                }
+                if ($r->getExpiresAt() <= $now) {
+                    throw new RuntimeException('A reservation has expired. Please add the product again.');
+                }
+                if ($r->getUser()?->getId() !== $user?->getId()) {
+                    throw new RuntimeException('Reservation does not belong to you.');
                 }
 
-                $expiresAt = $reservation->getExpiresAt();
+                $product = $r->getProduct();
+                $event   = $r->getFlashSaleEvent();
 
-                if (
-                    $expiresAt === null
-                    || $expiresAt <= new \DateTimeImmutable()
-                ) {
-                    throw new RuntimeException('Reservation has expired.');
-                }
-
-                $product = $reservation->getProduct();
-                $event = $reservation->getFlashSaleEvent();
-                $quantity = $reservation->getQuantity();
-
-                if (!$product || !$event || !$quantity || $quantity < 1) {
-                    throw new RuntimeException('Invalid reservation data.');
-                }
-
+                
                 if ($product->getStatus() !== 'ACTIVE') {
                     throw new RuntimeException('Product is not active.');
                 }
 
-                $fullName = $this->requiredString($data, 'fullName');
-                $email = $this->requiredString($data, 'email');
-                $phone = $this->requiredString($data, 'phone');
-                $address = $this->requiredString($data, 'address');
-                $city = $this->requiredString($data, 'city');
-                $zipCode = $this->requiredString($data, 'zipCode');
-                $paymentMethod = $this->requiredString($data, 'paymentMethod');
+                $unit = $this->unitPriceCents($product, $event);
+                $line = $unit * $r->getQuantity();
+                $totalCents += $line;
 
-                if (!in_array($paymentMethod, ['cod', 'online'], true)) {
-                    throw new RuntimeException('Invalid payment method.');
-                }
+                $item = new OrderItems();
+                $item->setProduct($product);
+                $item->setQuantity($r->getQuantity());
+                $item->setUnitPrice($this->formatCents($unit));
+                $item->setSubtotal($this->formatCents($line));
 
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    throw new RuntimeException('Invalid email address.');
+                $order->addOrderItem($item);
+                $this->entityManager->persist($item);
 
-                }
-
-                $currentPrice = $this->dynamicPricingService->getCurrentPrice($product);
-                $basePriceCents = $this->toCents($currentPrice);
-                $discountBps = $this->toCents(
-                    $event->getDiscountPercentage() ?? '0'
-                );
-
-                if ($discountBps < 0 || $discountBps > 10000) {
-                    throw new RuntimeException('Invalid discount percentage.');
-                }
-
-                $unitPriceCents = intdiv(
-                    ($basePriceCents * (10000 - $discountBps)) + 5000,
-                    10000
-                );
-
-                $subtotalCents = $unitPriceCents * $quantity;
-                $order = new Order();
-
-                $order->setUser($reservation->getUser());
-                $order->setFullName($fullName);
-                $order->setEmail($email);
-                $order->setPhone($phone);
-                $order->setAddress($address);
-                $order->setCity($city);
-                $order->setZipCode($zipCode);
-                $order->setPaymentMethod($paymentMethod);
-                $order->setTotalAmount($this->formatCents($subtotalCents));
-                $order->setStatus('PENDING');
-
-                $this->entityManager->persist($order);
-
-                $orderItem = new OrderItems();
-
-                $orderItem->setProduct($product);
-                $orderItem->setQuantity($quantity);
-                $orderItem->setUnitPrice(
-                    $this->formatCents($unitPriceCents)
-                );
-                $orderItem->setSubtotal(
-                    $this->formatCents($subtotalCents)
-                );
-
-                $order->addOrderItem($orderItem);
-
-                $this->entityManager->persist($orderItem);
-
-                $reservation->setStatus('CONVERTED');
-
-                $this->entityManager->flush();
-
-                $orderId = $order->getId();
-
-                 if ($orderId === null) {
-                    throw new RuntimeException('Order could not be created.');
-                }
-
-                return $order;
+                $r->setStatus('CONVERTED');
+                $r->setPurchaseOrder($order);
+                $productIds[] = $product->getId();
             }
-        );
-        if ($order->getPaymentMethod() === 'online') {
-            $this->messageBus->dispatch(
-                new ProcessPaymentMessage($order->getId())
-            );
+
+            $order->setTotalAmount($this->formatCents($totalCents));
+            $this->entityManager->persist($order);
+            $this->entityManager->flush();
+
+            return $order;
         }
-        return $order;
+    );
+
+    foreach (array_unique($productIds) as $id) {
+        $this->stockCacheService->invalidateStock($id);
     }
+
+    if ($order->getPaymentMethod() === 'online') {
+        $this->messageBus->dispatch(new ProcessPaymentMessage($order->getId()));
+    }
+
+    return $order;
+}
+
+private function unitPriceCents(Product $product, FlashSaleEvent $event): int
+{
+    $base = $this->toCents($this->dynamicPricingService->getCurrentPrice($product));
+    $bps  = $this->toCents($event->getDiscountPercentage() ?? '0');
+
+    if ($bps < 0 || $bps > 10000) {
+        throw new RuntimeException('Invalid discount percentage.');
+    }
+
+    return intdiv($base * (10000 - $bps) + 5000, 10000);
+}
+
+
 
     private function requiredString(array $data, string $field): string
     {

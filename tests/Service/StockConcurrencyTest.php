@@ -41,6 +41,10 @@ class StockConcurrencyTest extends KernelTestCase
         $productId = $product->getId();
         $eventId = $event->getId();
 
+        $entityManager->getProxyFactory()->generateProxyClasses(
+        $entityManager->getMetadataFactory()->getAllMetadata()
+        );
+
         $processes = [];
 
         $workerPath = dirname(__DIR__) . '/Support/stock_reservation_worker.php';
