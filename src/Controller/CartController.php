@@ -61,7 +61,7 @@ final class CartController extends AbstractController
         if ($quantity < 1) {
             $this->addFlash('error', 'Please select a valid quantity.');
 
-            return $this->redirectToRoute('app_product_show', [
+            return $this->redirectToRoute('app_shop_show', [
                 'id' => $product->getId(),
             ]);
         }
@@ -71,7 +71,7 @@ final class CartController extends AbstractController
         if (!$event) {
             $this->addFlash('error', 'This product is not in a flash sale.');
 
-            return $this->redirectToRoute('app_product_show', [
+            return $this->redirectToRoute('app_shop_show', [
                 'id' => $product->getId(),
             ]);
         }
@@ -99,7 +99,7 @@ final class CartController extends AbstractController
         } catch (\RuntimeException $e) {
             $this->addFlash('error', $e->getMessage());
 
-            return $this->redirectToRoute('app_product_show', [
+            return $this->redirectToRoute('app_shop_show', [
                 'id' => $product->getId(),
             ]);
         }
@@ -122,6 +122,7 @@ final class CartController extends AbstractController
 
         return $this->redirectToRoute('app_cart');
     }
+
 
     #[Route('/remove/{id}', name: 'app_cart_remove', methods: ['POST'])]
     public function remove(

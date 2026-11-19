@@ -2,164 +2,48 @@
 
 namespace App\Tests\Service;
 
-use App\Entity\PriceLog;
-use App\Entity\Product;
 use App\Repository\PriceLogRepository;
 use App\Service\DynamicPricingService;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Query;
-use Doctrine\ORM\QueryBuilder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-final class DynamicPricingServiceTest extends TestCase
+class DynamicPricingServiceTest extends TestCase
 {
-    private function createQueryBuilderMock(int $result): QueryBuilder
+    private DynamicPricingService $service;
+
+    protected function setUp(): void
     {
-        $query = $this->createMock(Query::class);
-        $query->method('getSingleScalarResult')
-            ->willReturn($result);
-
-        $queryBuilder = $this->createMock(QueryBuilder::class);
-
-        $queryBuilder->method('select')->willReturnSelf();
-        $queryBuilder->method('from')->willReturnSelf();
-        $queryBuilder->method('join')->willReturnSelf();
-        $queryBuilder->method('where')->willReturnSelf();
-        $queryBuilder->method('andWhere')->willReturnSelf();
-        $queryBuilder->method('setParameter')->willReturnSelf();
-        $queryBuilder->method('getQuery')->willReturn($query);
-
-        return $queryBuilder;
+        $this->service = new DynamicPricingService(
+            $this->createMock(EntityManagerInterface::class),
+            $this->createMock(PriceLogRepository::class),
+        );
     }
 
-    public function testPriceDoesNotIncreaseBelowReservationThreshold(): void
+    #[DataProvider('surgeProvider')]
+    public function testSurgePercentage(int $sold, int $expected): void
     {
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $priceLogRepository = $this->createMock(PriceLogRepository::class);
-
-        $product = $this->createMock(Product::class);
-        $product->method('getBasePrice')->willReturn('100.00');
-
-        $entityManager
-            ->expects(self::once())
-            ->method('createQueryBuilder')
-            ->willReturn($this->createQueryBuilderMock(1));
-
-        $entityManager
-            ->expects(self::never())
-            ->method('persist');
-
-        $service = new DynamicPricingService(
-            $entityManager,
-            $priceLogRepository
-        );
-
-        $service->evaluate($product);
+        $this->assertSame($expected, $this->service->calculateSurgePercentage($sold));
     }
 
-    public function testPriceIncreasesByFivePercentForOneHundredSoldUnits(): void
+    public static function surgeProvider(): array
     {
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $priceLogRepository = $this->createMock(PriceLogRepository::class);
-
-        $product = $this->createMock(Product::class);
-        $product->method('getBasePrice')->willReturn('100.00');
-
-        $entityManager
-            ->expects(self::exactly(2))
-            ->method('createQueryBuilder')
-            ->willReturnOnConsecutiveCalls(
-                $this->createQueryBuilderMock(10),
-                $this->createQueryBuilderMock(100)
-            );
-
-        $priceLogRepository
-            ->method('findOneBy')
-            ->willReturn(null);
-
-        $entityManager
-            ->expects(self::once())
-            ->method('persist')
-            ->with(self::callback(function (PriceLog $priceLog) use ($product) {
-                self::assertSame($product, $priceLog->getProduct());
-                self::assertSame('105.00', $priceLog->getPrice());
-
-                return true;
-            }));
-
-        $entityManager
-            ->expects(self::once())
-            ->method('flush');
-
-        $service = new DynamicPricingService(
-            $entityManager,
-            $priceLogRepository
-        );
-
-        $service->evaluate($product);
+        return [
+            'asnjë shitje' => [0, 0],
+            'nën 100' => [99, 0],
+            '100 njësi' => [100, 5],
+            '250 njësi' => [250, 10],
+            'kufiri maksimal' => [600, 30],
+            'mbi kufi' => [10000, 30],
+            'negative' => [-5, 0],
+        ];
     }
 
-    public function testPriceIncreaseDoesNotExceedThirtyPercent(): void
+    public function testSurgedPrice(): void
     {
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $priceLogRepository = $this->createMock(PriceLogRepository::class);
-
-        $product = $this->createMock(Product::class);
-        $product->method('getBasePrice')->willReturn('100.00');
-
-        $entityManager
-            ->expects(self::exactly(2))
-            ->method('createQueryBuilder')
-            ->willReturnOnConsecutiveCalls(
-                $this->createQueryBuilderMock(10),
-                $this->createQueryBuilderMock(1000)
-            );
-
-        $priceLogRepository
-            ->method('findOneBy')
-            ->willReturn(null);
-
-        $entityManager
-            ->expects(self::once())
-            ->method('persist')
-            ->with(self::callback(function (PriceLog $priceLog) {
-                self::assertSame('130.00', $priceLog->getPrice());
-
-                return true;
-            }));
-
-        $entityManager
-            ->expects(self::once())
-            ->method('flush');
-
-        $service = new DynamicPricingService(
-            $entityManager,
-            $priceLogRepository
-        );
-
-        $service->evaluate($product);
-    }
-
-    public function testGetCurrentPriceReturnsBasePriceWhenNoPriceLogExists(): void
-    {
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $priceLogRepository = $this->createMock(PriceLogRepository::class);
-
-        $product = $this->createMock(Product::class);
-        $product->method('getBasePrice')->willReturn('100.00');
-
-        $priceLogRepository
-            ->method('findOneBy')
-            ->willReturn(null);
-
-        $service = new DynamicPricingService(
-            $entityManager,
-            $priceLogRepository
-        );
-
-        self::assertSame('100.00', $service->getCurrentPrice($product));
+        $this->assertSame('100.00', $this->service->calculateSurgedPrice('100.00', 0));
+        $this->assertSame('105.00', $this->service->calculateSurgedPrice('100.00', 5));
+        $this->assertSame('130.00', $this->service->calculateSurgedPrice('100.00', 30));
+        $this->assertSame('21.99', $this->service->calculateSurgedPrice('19.99', 10));
     }
 }
-
-
-

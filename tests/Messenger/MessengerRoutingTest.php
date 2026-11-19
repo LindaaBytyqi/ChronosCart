@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Tests\Message;
+namespace App\Tests\Messenger;
 
 use App\Message\ProcessPaymentMessage;
 use App\Message\RestockInventoryMessage;

@@ -22,14 +22,15 @@ final class Version20261113141607 extends AbstractMigration
         $this->addSql('ALTER TABLE inventory_reservation ADD purchase_order_id INT DEFAULT NULL');
 
         $this->addSql('ALTER TABLE inventory_reservation ADD CONSTRAINT FK_363A759AA45D7E6A FOREIGN KEY (purchase_order_id) REFERENCES `order` (id)');
-
-        $this->addSql('CREATE INDEX IDX_363A759AA45D7E6A ON inventory_reservation (purchase_order_id)');
     }
 
-  public function down(Schema $schema): void
+    public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE inventory_reservation DROP FOREIGN KEY FK_363A759AA45D7E6A');
-        $this->addSql('DROP INDEX IDX_363A759AA45D7E6A ON inventory_reservation');
+        $this->addSql('DROP INDEX FK_363A759AA45D7E6A ON inventory_reservation');
         $this->addSql('ALTER TABLE inventory_reservation DROP purchase_order_id');
     }
 }
+
+
+

@@ -17,9 +17,9 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
     #[Route('/product')]
-    #[IsGranted('ROLE_ADMIN')]
     final class ProductController extends AbstractController
     {
+    #[IsGranted('ROLE_ADMIN')]
     #[Route(name: 'app_product_index', methods: ['GET'])]
     public function index(
         ProductRepository $productRepository,

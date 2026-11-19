@@ -52,12 +52,14 @@ class DynamicPricingService
         ->getQuery()
         ->getSingleScalarResult();
 
-        $levels = intdiv((int) $soldUnits, 100);
+        // $levels = intdiv((int) $soldUnits, 100);
 
-        $increasePercentage = min(
-            $levels * self::PRICE_INCREASE_PER_100,
-            self::MAX_INCREASE_PERCENTAGE
-        );
+        // $increasePercentage = min(
+        //     $levels * self::PRICE_INCREASE_PER_100,
+        //     self::MAX_INCREASE_PERCENTAGE
+        // );
+
+        $increasePercentage = $this->calculateSurgePercentage((int) $soldUnits);
 
         if ($increasePercentage === 0) {
             return;
@@ -65,10 +67,7 @@ class DynamicPricingService
 
         $basePrice = (float) $product->getBasePrice();
 
-        $newPrice = round(
-            $basePrice * (1 + $increasePercentage / 100),
-            2
-        );
+        $newPrice = (float) $this->calculateSurgedPrice($product->getBasePrice(), $increasePercentage);
 
         $latestLog = $this->priceLogRepository
             ->findOneBy(
@@ -103,5 +102,17 @@ class DynamicPricingService
         return $latestLog
             ? $latestLog->getPrice()
             : $product->getBasePrice();
+    }
+
+    public function calculateSurgePercentage(int $soldUnits): int
+    {
+        $levels = intdiv(max(0, $soldUnits), 100);
+
+        return min($levels * self::PRICE_INCREASE_PER_100, self::MAX_INCREASE_PERCENTAGE);
+    }
+
+    public function calculateSurgedPrice(string $basePrice, int $percentage): string
+    {
+        return number_format(round((float) $basePrice * (1 + $percentage / 100), 2), 2, '.', '');
     }
 }

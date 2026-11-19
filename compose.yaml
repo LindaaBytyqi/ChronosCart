@@ -27,8 +27,12 @@ services:
     environment:
       APP_ENV: dev
       DATABASE_URL: "mysql://root:root@database:3306/chronoscart?serverVersion=8.0&charset=utf8mb4"
-      REDIS_URL: "redis://host.docker.internal:6379"
-      MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
+      REDIS_URL: "redis://chronoscart-redis:6379"
+      LOCK_DSN: "redis://chronoscart-redis:6379"
+      MESSENGER_TRANSPORT_DSN: "redis://chronoscart-redis:6379/messages"
+
+      # REDIS_URL: "redis://host.docker.internal:6379"
+      # MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
     volumes:
       - .:/var/www/html
       - vendor_data:/var/www/html/vendor
@@ -49,8 +53,14 @@ services:
     environment:
       APP_ENV: dev
       DATABASE_URL: "mysql://root:root@database:3306/chronoscart?serverVersion=8.0&charset=utf8mb4"
-      REDIS_URL: "redis://host.docker.internal:6379"
-      MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
+      REDIS_URL: "redis://chronoscart-redis:6379"
+      LOCK_DSN: "redis://chronoscart-redis:6379"
+      MESSENGER_TRANSPORT_DSN: "redis://chronoscart-redis:6379/messages"
+
+      # APP_ENV: dev
+      # DATABASE_URL: "mysql://root:root@database:3306/chronoscart?serverVersion=8.0&charset=utf8mb4"
+      # REDIS_URL: "redis://host.docker.internal:6379"
+      # MESSENGER_TRANSPORT_DSN: "redis://host.docker.internal:6379/messages"
     volumes:
       - .:/var/www/html
       - vendor_data:/var/www/html/vendor
@@ -58,9 +68,6 @@ services:
     depends_on:
       database:
         condition: service_healthy
-
-
-
 
   mailer:
     image: axllent/mailpit

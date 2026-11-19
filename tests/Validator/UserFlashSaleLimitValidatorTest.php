@@ -5,127 +5,100 @@ namespace App\Tests\Validator;
 use App\DTO\ReserveRequest;
 use App\Entity\FlashSaleEvent;
 use App\Entity\Product;
-use App\Entity\User;
 use App\Validator\UserFlashSaleLimit;
 use App\Validator\UserFlashSaleLimitValidator;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query;
-use Symfony\Component\Validator\Test\ConstraintValidatorTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
+use Symfony\Component\Validator\ConstraintValidatorInterface;
+use Symfony\Component\Validator\Test\ConstraintValidatorTestCase;
 
 class UserFlashSaleLimitValidatorTest extends ConstraintValidatorTestCase
 {
-    private EntityManagerInterface $entityManager;
+    private EntityManagerInterface&MockObject $em;
 
-    private int $alreadyReserved = 0;
-
-   protected function createValidator(): UserFlashSaleLimitValidator
+    protected function setUp(): void
     {
-    $query = $this->createMock(Query::class);
-
-    $query->method('setParameter')
-        ->willReturnSelf();
-
-    $query->method('getSingleScalarResult')
-        ->willReturnCallback(fn () => $this->alreadyReserved);
-
-    /** @var EntityManagerInterface&MockObject $entityManager */
-    $entityManager = $this->createMock(EntityManagerInterface::class);
-
-    $entityManager
-        ->expects($this->any())
-        ->method('createQuery')
-        ->willReturn($query);
-
-    $this->entityManager = $entityManager;
-
-    return new UserFlashSaleLimitValidator($this->entityManager);
+        $this->em = $this->createMock(EntityManagerInterface::class);
+        parent::setUp();
     }
 
-    private function createReserveRequest(
-        int $quantity,
-        bool $withIdentity = true
-    ): ReserveRequest {
-        $product = new Product();
+    protected function createValidator(): ConstraintValidatorInterface
+    {
+        return new UserFlashSaleLimitValidator($this->em);
+    }
+
+    private function mockAlreadyReserved(int $already): void
+    {
+        $query = $this->createMock(Query::class);
+        $query->method('setParameter')->willReturnSelf();
+        $query->method('getSingleScalarResult')->willReturn((string) $already);
+        $this->em->method('createQuery')->willReturn($query);
+    }
+
+    private function request(int $quantity, ?string $identityHash = 'hash', ?string $ipHash = null): ReserveRequest
+    {
+        $product = (new Product())
+            ->setSku('X')->setName('X')->setBasePrice('10.00')
+            ->setInitialStock(5)->setStatus('ACTIVE');
 
         $event = (new FlashSaleEvent())
             ->setProduct($product)
-            ->setMaxQuantityPerUser(3);
+            ->setMaxQuantityPerUser(2);
 
-        $request = new ReserveRequest();
-        $request->quantity = $quantity;
-        $request->event = $event;
+        $r = new ReserveRequest();
+        $r->event = $event;
+        $r->quantity = $quantity;
+        $r->identityHash = $identityHash;
+        $r->ipHash = $ipHash;
 
-        if ($withIdentity) {
-            $request->identityHash = 'visitor-hash-123';
-        }
-
-        return $request;
+        return $r;
     }
 
-    public function testReservationIsAllowedWithinLimit(): void
+    public function testWithinLimitIsValid(): void
     {
-        $this->alreadyReserved = 1;
-
-        $request = $this->createReserveRequest(1);
-
-        $this->validator->validate(
-            $request,
-            new UserFlashSaleLimit()
-        );
-
+        $this->mockAlreadyReserved(1);
+        $this->validator->validate($this->request(1), new UserFlashSaleLimit());
         $this->assertNoViolation();
     }
 
-    public function testReservationIsRejectedWhenLimitIsExceeded(): void
+    public function testExceedingLimitAddsViolation(): void
     {
-        $this->alreadyReserved = 3;
+        $constraint = new UserFlashSaleLimit();
+        $this->mockAlreadyReserved(2);
+        $this->validator->validate($this->request(1), $constraint);
 
-        $request = $this->createReserveRequest(1);
-
-        $this->validator->validate(
-            $request,
-            new UserFlashSaleLimit()
-        );
-
-        $this->buildViolation(
-            'You have reached the maximum quantity for this flash sale.'
-        )
+        $this->buildViolation($constraint->message)
             ->atPath('property.path.quantity')
             ->assertRaised();
     }
 
-    public function testReservationIsRejectedWhenQuantityExceedsRemainingLimit(): void
+    public function testIpHashAloneIsEnoughToIdentifyAndEnforceLimit(): void
     {
-        $this->alreadyReserved = 2;
+        $constraint = new UserFlashSaleLimit();
+        $this->mockAlreadyReserved(2);
+        $this->validator->validate($this->request(1, null, 'ip-hash'), $constraint);
 
-        $request = $this->createReserveRequest(2);
-
-        $this->validator->validate(
-            $request,
-            new UserFlashSaleLimit()
-        );
-
-        $this->buildViolation(
-            'You have reached the maximum quantity for this flash sale.'
-        )
+        $this->buildViolation($constraint->message)
             ->atPath('property.path.quantity')
             ->assertRaised();
     }
 
-    public function testReservationIsRejectedWithoutCustomerIdentity(): void
+    public function testNoIdentityAddsViolation(): void
     {
-        $request = $this->createReserveRequest(1, false);
+        $this->validator->validate($this->request(1, null, null), new UserFlashSaleLimit());
 
-        $this->validator->validate(
-            $request,
-            new UserFlashSaleLimit()
-        );
-
-        $this->buildViolation(
-            'Unable to identify the customer.'
-        )
+        $this->buildViolation('Unable to identify the customer.')
             ->atPath('property.path.quantity')
             ->assertRaised();
-    }   
+    }
+
+    public function testInvalidQuantityIsIgnored(): void
+    {
+        $this->validator->validate($this->request(0), new UserFlashSaleLimit());
+        $this->assertNoViolation();
+    }
 }
+
+
+

@@ -31,9 +31,9 @@ final class CheckoutController extends AbstractController
         }
 
        
-        $checkoutToken = $data['checkoutToken'] ?? null;
+        $tokens = $data['checkoutTokens'] ?? (isset($data['checkoutToken']) ? [$data['checkoutToken']] : null);
 
-        if (!is_string($checkoutToken) || trim($checkoutToken) === '') {
+        if (!is_array($tokens) || $tokens === []) {
             return $this->json([
                 'error' => 'Checkout token is required.',
             ], 400);
@@ -41,10 +41,10 @@ final class CheckoutController extends AbstractController
 
         try {
             $order = $checkoutService->checkout(
-                $checkoutToken,
-                $data
+                $tokens,
+                $data,
+                $this->getUser()
             );
-
         } catch (RuntimeException $exception) {
             return $this->json([
                 'error' => $exception->getMessage(),

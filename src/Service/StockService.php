@@ -43,19 +43,20 @@ class StockService
             );
         }
 
-$lock = $this->lockFactory->createLock('flash_sale_product_' . $productId, 10.0);
-$acquired = false;
+        $lock = $this->lockFactory->createLock('flash_sale_product_' . $productId, 10.0);
+        $acquired = false;
 
-for ($i = 0; $i < 20 && !$acquired; $i++) {
-    $acquired = $lock->acquire(false);
-    if (!$acquired) {
-        usleep(random_int(20000, 60000));
-    }
-}
+        for ($i = 0; $i < 200 && !$acquired; $i++) {
+            $acquired = $lock->acquire(false);
 
-if (!$acquired) {
-    throw new TooBusyException('Too many requests, try again.');
-}
+            if (!$acquired) {
+                usleep(random_int(20000, 60000));
+            }
+        }
+
+        if (!$acquired) {
+            throw new TooBusyException('Too many requests, try again.');
+        }
 
         try {
 

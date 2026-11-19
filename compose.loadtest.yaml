@@ -1,0 +1,25 @@
+services:
+  load-test-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chronoscart_load_test_app
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://root:root@database:3306/chronoscart_load_test?serverVersion=8.0&charset=utf8mb4"
+      REDIS_URL: "redis://chronoscart-redis:6379"
+      LOCK_DSN: "redis://chronoscart-redis:6379"
+      MESSENGER_TRANSPORT_DSN: "redis://chronoscart-redis:6379/messages"
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - load_test_var_data:/var/www/html/var
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  load_test_var_data:

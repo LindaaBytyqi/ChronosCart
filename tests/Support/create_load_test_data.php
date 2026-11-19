@@ -10,7 +10,8 @@ use App\Entity\Product;
 use App\Entity\FlashSaleEvent;
 use App\Kernel;
 
-$kernel = new Kernel('load_test', false);
+// $kernel = new Kernel('load_test', false);
+$kernel = new Kernel('dev', false);
 $kernel->boot();
 
 $entityManager = $kernel->getContainer()
@@ -30,7 +31,7 @@ $event
     ->setProduct($product)
     ->setStartTime(new DateTimeImmutable('-5 minutes'))
     ->setEndTime(new DateTimeImmutable('+1 day'))
-    ->setMaxQuantityPerUser(1)
+    ->setMaxQuantityPerUser(10)
     ->setDiscountPercentage('10.00');
 
 $entityManager->persist($event);

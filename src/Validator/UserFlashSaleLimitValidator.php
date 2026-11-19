@@ -60,6 +60,11 @@ class UserFlashSaleLimitValidator extends ConstraintValidator
             $conditions[] = 'r.identityHash = :identityHash';
             $parameters['identityHash'] = $value->identityHash;
         }
+        
+        if ($value->ipHash !== null) {
+            $conditions[] = 'r.ipHash = :ipHash';
+            $parameters['ipHash'] = $value->ipHash;
+        }
 
         if ($conditions === []) {
             $this->context
